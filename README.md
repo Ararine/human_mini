@@ -1,4 +1,4 @@
-# human_mini
+# human_mini(test2)
 
 # ✍ 변수 작명법
 
