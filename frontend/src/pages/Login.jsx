@@ -209,6 +209,17 @@ export default function Login() {
 
                 <MuiLink
                   component={Link}
+                  to="/find-password"
+                  underline="hover"
+                  sx={{ fontWeight: 600, fontSize: 14 }}
+                >
+                  비밀번호 재설정
+                </MuiLink>
+
+                <Typography color="text.disabled">|</Typography>
+
+                <MuiLink
+                  component={Link}
                   to="/signup"
                   underline="hover"
                   sx={{ fontWeight: 600, fontSize: 14 }}
