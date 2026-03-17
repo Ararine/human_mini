@@ -155,7 +155,6 @@ function Signup() {
       return;
     }
 
-    // 백 중복확인 API가 아직 없어서 임시 배열 체크 유지
     if (EXISTING_IDS.includes(userid)) {
       setIdMsg("이미 사용 중인 아이디입니다.");
       setIdChecked(false);
@@ -197,7 +196,6 @@ function Signup() {
       return;
     }
 
-    // 백 중복확인 API가 아직 없어서 임시 배열 체크 유지
     if (EXISTING_EMAILS.includes(email)) {
       setEmailMsg("이미 가입된 이메일입니다.");
       setEmailChecked(false);
@@ -305,6 +303,7 @@ function Signup() {
       ).padStart(2, "0")}`,
       phone_number: `${form.phone1}-${form.phone2}-${form.phone3}`,
       telecom_provider: form.telecomProvider,
+      social_provider: "local",
     };
 
     try {
@@ -439,6 +438,8 @@ function Signup() {
             </Typography>
 
             <Box component="form" onSubmit={handleSubmit}>
+              <input type="hidden" name="social_provider" value="local" />
+
               <Stack spacing={2}>
                 <Box
                   sx={{
