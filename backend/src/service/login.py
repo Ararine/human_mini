@@ -1,11 +1,13 @@
 
 import bcrypt
 from sqlalchemy import text 
+
 from util.database import engine
 from model.user_handler import get_user
 from util.database import SessionLocal
 
 from .user_service import get_user_from_db, change_password_in_db
+
 
 
 # 비밀번호 해시를 저장하는 '사용자 계정명' 용도
@@ -16,7 +18,6 @@ users = {
 # 비밀번호 유효성 검증
 def verify_user(username: str, password: str) -> bool:
     db = SessionLocal()
-    
     try :
         user_record = get_user(db, username=username)
         if user_record:

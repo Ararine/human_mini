@@ -16,7 +16,9 @@ async def register(data: SignupRequest):
         await register_user(
             data.username, data.password, data.full_name,
             data.email, data.gender, data.birth_date,
-            data.phone_number, data.telecom_provider
+            data.phone_number, data.telecom_provider,
+            data.social_provider, data.social_id  
+
         )
         return JSONResponse(status_code=status.HTTP_201_CREATED, 
                             content={"message": "회원가입 완료"})

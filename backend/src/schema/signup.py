@@ -11,3 +11,6 @@ class SignupRequest(BaseModel):
     birth_date: Optional[date] = None        # NULL 허용
     phone_number: Optional[str] = None       # NULL 허용
     telecom_provider: Optional[str] = None   # NULL 허용
+    social_provider: str = "local"       # "local"  기본값
+    social_id: Optional[str] = None      # NULL 허용
+
