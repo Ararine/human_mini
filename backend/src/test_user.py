@@ -24,23 +24,29 @@ def run_interactive_test():
         try:
             if choice == '1':
                 print(f"\n[1단계] '{test_username}' 유저 생성을 시작합니다...")
-                new_user = create_user(
+                # [CREATE] 이제 성공 여부(bool)를 반환함
+                # 인자 이름은 handler 정의에 맞춰 hashed_password로 전달
+                success = create_user(
                     db=db,
                     username=test_username,
-                    password="password123",
+                    hashed_password="hashed_password_123", # handler의 인자명과 일치시킴
                     full_name="골드테스터",
                     email="gold@test.com",
                     birth_date=date(1995, 3, 16),
                     gender="남"
                 )
-                print(f"✅ 결과: ID {new_user.id}번 유저 생성 완료!")
-                print("💡 Tip: DBeaver에서 'users' 테이블을 새로고침(F5) 해보세요.")
+                if success:
+                    print(f"✅ 결과: '{test_username}' 유저 생성 완료!")
+                else:
+                    print("❌ 결과: 유저 생성 실패 (중복 아이디 등)")
 
             elif choice == '2':
                 print(f"\n[2단계] '{test_username}' 유저를 DB에서 조회합니다...")
+                # [READ] 이제 딕셔너리(dict)를 반환함
                 user = get_user(db, username=test_username)
                 if user:
-                    print(f"✅ 결과: 찾았습니다! [이름: {user.full_name}, 이메일: {user.email}]")
+                    # 딕셔너리 접근 방식 사용 (user.full_name -> user['full_name'])
+                    print(f"✅ 결과: 찾았습니다! [이름: {user['full_name']}, 이메일: {user['email']}]")
                 else:
                     print("❌ 결과: 해당 유저가 DB에 없습니다.")
 
@@ -49,9 +55,12 @@ def run_interactive_test():
                 user = get_user(db, username=test_username)
                 if user:
                     update_data = {"phone_number": "010-7777-7777"}
-                    updated = update_user_info(db, user_id=user.id, update_data=update_data)
-                    print(f"✅ 결과: 번호가 {updated.phone_number}로 변경되었습니다.")
-                    print("💡 Tip: DBeaver에서 해당 행의 'phone_number' 컬럼을 확인하세요.")
+                    # [UPDATE] 이제 성공 여부(bool)를 반환함
+                    success = update_user_info(db, user_id=user['id'], update_data=update_data)
+                    if success:
+                        print(f"✅ 결과: 번호가 {update_data['phone_number']}로 변경되었습니다.")
+                    else:
+                        print("❌ 결과: 정보 수정 중 오류가 발생했습니다.")
                 else:
                     print("❌ 결과: 수정할 유저가 없습니다. 1번을 먼저 실행하세요.")
 
@@ -59,9 +68,11 @@ def run_interactive_test():
                 print(f"\n[4단계] '{test_username}' 유저를 삭제합니다...")
                 user = get_user(db, username=test_username)
                 if user:
-                    if delete_user(db, user_id=user.id):
-                        print(f"✅ 결과: '{test_username}' 유저 및 관련 히스토리가 삭제되었습니다.")
-                        print("💡 Tip: DBeaver에서 데이터가 사라졌는지 확인하세요.")
+                    # [DELETE] 성공 여부(bool) 반환
+                    if delete_user(db, user_id=user['id']):
+                        print(f"✅ 결과: '{test_username}' 유저가 삭제되었습니다.")
+                    else:
+                        print("❌ 결과: 삭제 처리 중 오류가 발생했습니다.")
                 else:
                     print("❌ 결과: 삭제할 유저가 없습니다.")
 

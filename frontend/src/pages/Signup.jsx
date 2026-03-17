@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -20,14 +20,34 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
 
+// =========================
+// [임시 테스트용 데이터]
+// 현재 백엔드 API가 완전히 연결되기 전까지
+// 프론트에서 중복 여부를 흉내내기 위한 임시 배열
+// 추후 실제 DB/API 연결 시 제거 가능
+// =========================
 const EXISTING_IDS = ["admin", "testuser", "hello123"];
 const EXISTING_EMAILS = ["test@gmail.com", "admin@naver.com", "user@daum.net"];
 
+// =========================
+// [유효성 검사 정규식]
+// =========================
 const ID_REGEX = /^[A-Za-z0-9]{8,12}$/;
 const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
 const NAME_REGEX = /^[가-힣a-zA-Z]+$/;
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const CODE_REGEX = /^\d{6}$/;
 
+// =========================
+// [이메일 인증코드 만료 시간]
+// 300초 = 5분
+// =========================
+const EMAIL_EXPIRE_TIME = 300;
+
+// =========================
+// [초기 폼 상태]
+// emailCode: 이메일 인증 입력칸 값
+// =========================
 const INITIAL_FORM = {
   userid: "",
   password: "",
@@ -40,6 +60,7 @@ const INITIAL_FORM = {
   gender: "",
   emailId: "",
   emailDomain: "",
+  emailCode: "",
   year: "",
   month: "",
   day: "",
@@ -49,6 +70,9 @@ function Signup() {
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
 
+  // =========================
+  // [생년월일 select 옵션]
+  // =========================
   const years = useMemo(
     () => Array.from({ length: 101 }, (_, i) => currentYear - i),
     [currentYear],
@@ -56,17 +80,63 @@ function Signup() {
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
 
+  // =========================
+  // [기본 상태값]
+  // =========================
   const [form, setForm] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
+
+  // =========================
+  // [검증/인증 상태]
+  // idChecked: 아이디 중복확인 완료 여부
+  // emailChecked: 이메일 중복확인 + 인증코드 발송까지 진행 여부
+  // emailVerified: 이메일 인증코드 검증 완료 여부
+  // =========================
   const [idChecked, setIdChecked] = useState(false);
   const [emailChecked, setEmailChecked] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+
+  // =========================
+  // [안내 메시지 상태]
+  // =========================
   const [idMsg, setIdMsg] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
+  const [emailCodeMsg, setEmailCodeMsg] = useState("");
+
+  // =========================
+  // [UI 상태]
+  // domainReadOnly: 도메인 선택으로 고정했을 때 직접입력 막기
+  // showPassword/showPassword2: 비밀번호 표시 여부
+  // isSubmitting: 회원가입 요청 중 여부
+  // =========================
   const [domainReadOnly, setDomainReadOnly] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // =========================
+  // [이메일 인증 UI 상태]
+  // emailCodeSent: 인증코드 발송 상태
+  // showResendButton: 인증시간 만료 후 재발송 버튼 표시 여부
+  // timeLeft: 남은 시간(초)
+  // =========================
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // =========================
+  // [임시 프론트 테스트용 인증 데이터]
+  // sentEmailCode: 프론트에서 임시 생성한 6자리 인증코드
+  // codeExpireAt: 인증코드 만료 시각(timestamp)
+  //
+  // 추후 실제 백엔드 연결 시:
+  // - 이 코드는 프론트에 저장하지 않는 것이 맞음
+  // - 서버(DB/Redis)가 인증코드와 만료시간을 관리해야 함
+  // =========================
+  const [sentEmailCode, setSentEmailCode] = useState("");
+  const [codeExpireAt, setCodeExpireAt] = useState(null);
+
+  // 조합된 전체 이메일
   const email = `${form.emailId.trim()}@${form.emailDomain.trim()}`;
 
   const updateForm = (name, value) => {
@@ -83,14 +153,32 @@ function Signup() {
     }));
   };
 
+  // =========================
+  // [아이디 중복확인 초기화]
+  // 사용자가 아이디를 다시 수정하면
+  // 기존 중복확인 결과는 무효 처리
+  // =========================
   const resetIdCheck = () => {
     setIdChecked(false);
     setIdMsg("");
   };
 
-  const resetEmailCheck = () => {
+  // =========================
+  // [이메일 인증 관련 상태 전체 초기화]
+  // 이메일 아이디/도메인이 바뀌면
+  // 이전 인증 결과는 모두 무효 처리해야 함
+  // =========================
+  const resetEmailVerificationAll = () => {
     setEmailChecked(false);
+    setEmailVerified(false);
     setEmailMsg("");
+    setEmailCodeMsg("");
+    setEmailCodeSent(false);
+    setShowResendButton(false);
+    setTimeLeft(0);
+    setSentEmailCode("");
+    setCodeExpireAt(null);
+    updateForm("emailCode", "");
   };
 
   const handleChange = (e) => {
@@ -99,16 +187,24 @@ function Signup() {
     updateForm(name, value);
     clearFieldError(name);
 
+    // 아이디 변경 시 중복확인 초기화
     if (name === "userid") resetIdCheck();
-    if (name === "emailId" || name === "emailDomain") resetEmailCheck();
+
+    // 이메일 관련 값 변경 시 인증 상태 초기화
+    if (name === "emailId" || name === "emailDomain") {
+      resetEmailVerificationAll();
+    }
+
     if (name === "year" || name === "month" || name === "day") {
       clearFieldError("birth");
     }
+
     if (name === "gender") {
       clearFieldError("gender");
     }
   };
 
+  // 숫자만 입력되도록 처리
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
     const onlyNumber = value.replace(/[^0-9]/g, "");
@@ -116,6 +212,15 @@ function Signup() {
     clearFieldError("phone1");
   };
 
+  // 인증코드 6자리 숫자만 허용
+  const handleCodeChange = (e) => {
+    const onlyNumber = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+    updateForm("emailCode", onlyNumber);
+    clearFieldError("emailCode");
+    setEmailCodeMsg("");
+  };
+
+  // 이메일 도메인 select 선택 처리
   const handleDomainSelect = (e) => {
     const selectedDomain = e.target.value;
 
@@ -127,11 +232,71 @@ function Signup() {
       setDomainReadOnly(false);
     }
 
-    resetEmailCheck();
+    resetEmailVerificationAll();
     clearFieldError("emailId");
     clearFieldError("emailDomain");
   };
 
+  // =========================
+  // [임시 인증코드 생성 함수]
+  // 100000 ~ 999999 사이의 6자리 난수 생성
+  //
+  // 추후 실제 백엔드 연결 시:
+  // 이 함수는 프론트에서 쓰지 않고
+  // 서버에서 생성해서 이메일 발송까지 처리하는 것이 맞음
+  // =========================
+  const generateSixDigitCode = () => {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  };
+
+  // 남은 시간을 mm:ss 형식으로 포맷
+  const formatTime = (seconds) => {
+    const min = String(Math.floor(seconds / 60)).padStart(2, "0");
+    const sec = String(seconds % 60).padStart(2, "0");
+    return `${min}:${sec}`;
+  };
+
+  // =========================
+  // [이메일 인증 타이머]
+  // 인증코드 발송 후 1초마다 남은 시간 감소
+  // 시간 만료 시:
+  // - 인증코드 입력 상태 종료
+  // - 재발송 버튼 표시
+  // =========================
+  useEffect(() => {
+    if (!emailCodeSent || !codeExpireAt) return;
+
+    const timer = setInterval(() => {
+      const remain = Math.max(
+        0,
+        Math.floor((codeExpireAt - Date.now()) / 1000),
+      );
+
+      setTimeLeft(remain);
+
+      if (remain <= 0) {
+        clearInterval(timer);
+        setEmailCodeSent(false);
+        setShowResendButton(true);
+        setEmailVerified(false);
+        setEmailCodeMsg("인증코드가 만료되었습니다. 재발송해주세요.");
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [emailCodeSent, codeExpireAt]);
+
+  // =========================
+  // [아이디 중복확인]
+  //
+  // 현재:
+  // - EXISTING_IDS 배열을 사용한 프론트 임시 검사
+  //
+  // 추후 백엔드 연결 시:
+  // - 서버에 아이디 중복 여부를 요청
+  // - 예: GET /check-username?username=...
+  // - 응답 예시: { exists: true } / { exists: false }
+  // =========================
   const checkDuplicateId = async () => {
     const userid = form.userid.trim();
 
@@ -155,6 +320,10 @@ function Signup() {
       return;
     }
 
+    // =========================
+    // [현재 임시 방식]
+    // 프론트 배열로만 중복 여부 확인
+    // =========================
     if (EXISTING_IDS.includes(userid)) {
       setIdMsg("이미 사용 중인 아이디입니다.");
       setIdChecked(false);
@@ -163,15 +332,57 @@ function Signup() {
 
     setIdMsg("사용 가능한 아이디입니다.");
     setIdChecked(true);
+
+    // =========================
+    // [추후 실제 API 연결 방식]
+    // 백엔드에 username 중복 여부 확인 요청
+    // =========================
+    /*
+    try {
+      const response = await fetch(
+        `http://localhost:5000/check-username?username=${encodeURIComponent(userid)}`
+      );
+
+      const data = await response.json();
+
+      if (data.exists) {
+        setIdMsg("이미 사용 중인 아이디입니다.");
+        setIdChecked(false);
+      } else {
+        setIdMsg("사용 가능한 아이디입니다.");
+        setIdChecked(true);
+      }
+    } catch (error) {
+      console.error("아이디 중복확인 오류:", error);
+      setIdMsg("서버와 연결할 수 없습니다.");
+      setIdChecked(false);
+    }
+    */
   };
 
-  const checkDuplicateEmail = async () => {
+  // =========================
+  // [이메일 인증코드 발송]
+  //
+  // 현재:
+  // - 이메일 중복 여부를 프론트 배열로 확인
+  // - 프론트에서 6자리 코드 생성
+  // - 콘솔에 인증코드 출력
+  // - 5분 타이머 시작
+  //
+  // 추후 백엔드 연결 시:
+  // - 서버에서 이메일 중복검사
+  // - 서버에서 6자리 코드 생성
+  // - 서버에서 메일 발송
+  // - 서버에서 만료시간 저장(DB/Redis)
+  // =========================
+  const sendEmailCode = async () => {
     if (!form.emailId.trim()) {
       setErrors((prev) => ({
         ...prev,
         emailId: "이메일 아이디를 입력하세요.",
       }));
       setEmailChecked(false);
+      setEmailVerified(false);
       setEmailMsg("");
       return;
     }
@@ -182,6 +393,7 @@ function Signup() {
         emailDomain: "도메인을 입력하세요.",
       }));
       setEmailChecked(false);
+      setEmailVerified(false);
       setEmailMsg("");
       return;
     }
@@ -192,20 +404,198 @@ function Signup() {
         emailId: "올바른 이메일 형식이 아닙니다.",
       }));
       setEmailChecked(false);
+      setEmailVerified(false);
       setEmailMsg("");
       return;
     }
 
+    // =========================
+    // [현재 임시 방식]
+    // 프론트 배열로 이메일 중복 여부 확인
+    // =========================
     if (EXISTING_EMAILS.includes(email)) {
       setEmailMsg("이미 가입된 이메일입니다.");
       setEmailChecked(false);
+      setEmailVerified(false);
       return;
     }
 
-    setEmailMsg("사용 가능한 이메일입니다.");
-    setEmailChecked(true);
+    try {
+      // =========================
+      // [현재 임시 방식]
+      // 프론트에서 인증코드 생성 및 만료시간 설정
+      // =========================
+      const code = generateSixDigitCode();
+      const expireAt = Date.now() + EMAIL_EXPIRE_TIME * 1000;
+
+      setSentEmailCode(code);
+      setCodeExpireAt(expireAt);
+      setTimeLeft(EMAIL_EXPIRE_TIME);
+      setEmailCodeSent(true);
+      setShowResendButton(false);
+      setEmailChecked(true);
+      setEmailVerified(false);
+      updateForm("emailCode", "");
+      clearFieldError("emailCode");
+      setEmailMsg("인증코드가 이메일로 전송되었습니다.");
+      setEmailCodeMsg("");
+
+      // 현재는 실제 메일 전송 대신 콘솔에 출력
+      console.log("임시 이메일 인증코드:", code);
+
+      // =========================
+      // [추후 실제 API 연결 방식]
+      // 서버에 인증코드 발송 요청
+      //
+      // 예상 API 예시:
+      // POST /send-email-code
+      // body: { email: "test@gmail.com" }
+      //
+      // 서버 역할:
+      // 1. 이메일 중복 확인
+      // 2. 6자리 코드 생성
+      // 3. 이메일 전송
+      // 4. 만료시간 저장
+      // =========================
+      /*
+      const response = await fetch("http://localhost:5000/send-email-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTimeLeft(EMAIL_EXPIRE_TIME);
+        setEmailCodeSent(true);
+        setShowResendButton(false);
+        setEmailChecked(true);
+        setEmailVerified(false);
+        updateForm("emailCode", "");
+        clearFieldError("emailCode");
+        setEmailMsg(data.message || "인증코드가 이메일로 전송되었습니다.");
+        setEmailCodeMsg("");
+      } else {
+        setEmailChecked(false);
+        setEmailVerified(false);
+        setEmailMsg(data.message || data.error || "인증코드 전송에 실패했습니다.");
+      }
+      */
+    } catch (error) {
+      console.error("이메일 인증코드 전송 오류:", error);
+      setEmailChecked(false);
+      setEmailVerified(false);
+      setEmailMsg("서버와 연결할 수 없습니다.");
+    }
   };
 
+  // =========================
+  // [이메일 인증코드 검증]
+  //
+  // 현재:
+  // - 프론트에 저장된 sentEmailCode와 비교
+  // - codeExpireAt으로 만료 여부 체크
+  //
+  // 추후 백엔드 연결 시:
+  // - 서버에 email + code 전달
+  // - 서버가 코드 일치/만료 여부 판단
+  // - 응답에 따라 인증 완료 처리
+  // =========================
+  const verifyEmailCode = async () => {
+    if (!form.emailCode.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        emailCode: "인증코드를 입력하세요.",
+      }));
+      return;
+    }
+
+    if (!CODE_REGEX.test(form.emailCode.trim())) {
+      setErrors((prev) => ({
+        ...prev,
+        emailCode: "인증코드는 6자리 숫자입니다.",
+      }));
+      return;
+    }
+
+    // 현재 임시 방식: 프론트 만료시간 검사
+    if (!codeExpireAt || Date.now() > codeExpireAt) {
+      setEmailVerified(false);
+      setEmailCodeMsg("인증코드가 만료되었습니다. 재발송해주세요.");
+      setEmailCodeSent(false);
+      setShowResendButton(true);
+      return;
+    }
+
+    try {
+      // =========================
+      // [현재 임시 방식]
+      // 프론트에서 코드 비교
+      // =========================
+      if (form.emailCode.trim() === sentEmailCode) {
+        setEmailVerified(true);
+        setEmailCodeSent(false);
+        setShowResendButton(false);
+        setEmailMsg("이메일 인증이 완료되었습니다.");
+        setEmailCodeMsg("이메일 인증이 완료되었습니다.");
+      } else {
+        setEmailVerified(false);
+        setEmailCodeMsg("인증코드가 일치하지 않습니다.");
+      }
+
+      // =========================
+      // [추후 실제 API 연결 방식]
+      // 서버에 인증코드 검증 요청
+      //
+      // 예상 API 예시:
+      // POST /verify-email-code
+      // body: { email: "...", code: "123456" }
+      //
+      // 서버 역할:
+      // 1. 해당 이메일의 최신 인증코드 조회
+      // 2. 만료 여부 확인
+      // 3. 코드 일치 여부 확인
+      // 4. 인증 완료 처리
+      // =========================
+      /*
+      const response = await fetch("http://localhost:5000/verify-email-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          code: form.emailCode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmailVerified(true);
+        setEmailCodeSent(false);
+        setShowResendButton(false);
+        setEmailMsg("이메일 인증이 완료되었습니다.");
+        setEmailCodeMsg(data.message || "이메일 인증이 완료되었습니다.");
+      } else {
+        setEmailVerified(false);
+        setEmailCodeMsg(data.message || data.error || "인증에 실패했습니다.");
+      }
+      */
+    } catch (error) {
+      console.error("이메일 인증 확인 오류:", error);
+      setEmailVerified(false);
+      setEmailCodeMsg("서버와 연결할 수 없습니다.");
+    }
+  };
+
+  // =========================
+  // [전체 폼 검증]
+  // 회원가입 버튼 클릭 시 최종 검사
+  // =========================
   const validateForm = () => {
     const newErrors = {};
 
@@ -279,7 +669,9 @@ function Signup() {
       if (!EMAIL_REGEX.test(email)) {
         newErrors.emailId = "올바른 이메일 형식이 아닙니다.";
       } else if (!emailChecked) {
-        newErrors.emailId = "이메일 중복 확인을 해주세요.";
+        newErrors.emailId = "이메일 확인을 진행해주세요.";
+      } else if (!emailVerified) {
+        newErrors.emailCode = "이메일 인증을 완료해주세요.";
       }
     }
 
@@ -287,6 +679,16 @@ function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // =========================
+  // [회원가입 제출]
+  //
+  // 현재:
+  // - register API 호출
+  //
+  // 백엔드 연결 시 주의:
+  // - username, full_name, email, gender 등
+  //   백엔드 필드명과 정확히 맞춰야 함
+  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -326,9 +728,16 @@ function Signup() {
         setErrors({});
         setIdChecked(false);
         setEmailChecked(false);
+        setEmailVerified(false);
         setIdMsg("");
         setEmailMsg("");
+        setEmailCodeMsg("");
         setDomainReadOnly(false);
+        setEmailCodeSent(false);
+        setShowResendButton(false);
+        setTimeLeft(0);
+        setSentEmailCode("");
+        setCodeExpireAt(null);
         navigate("/login");
       } else {
         alert(data.message || data.error || "회원가입에 실패했습니다.");
@@ -344,31 +753,34 @@ function Signup() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        height: "100vh",
         bgcolor: "#f6f8f6",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        px: 2,
-        py: 3,
+        px: { xs: 1.5, md: 2 },
+        py: { xs: 1.5, md: 2 },
+        overflow: "hidden",
       }}
     >
       <Card
         elevation={0}
         sx={{
           width: "100%",
-          maxWidth: 1120,
-          borderRadius: 5,
+          maxWidth: 1100,
+          height: "calc(100vh - 24px)",
+          borderRadius: 4,
           border: "1px solid",
           borderColor: "#e6ebe6",
-          overflow: "hidden",
           backgroundColor: "#fff",
+          overflow: "hidden",
         }}
       >
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "320px 1fr" },
+            gridTemplateColumns: { xs: "1fr", md: "280px 1fr" },
+            height: "100%",
           }}
         >
           <Box
@@ -376,7 +788,7 @@ function Signup() {
               background: "linear-gradient(180deg, #edf7ee 0%, #f8fbf8 100%)",
               borderRight: { xs: "none", md: "1px solid #e6ebe6" },
               borderBottom: { xs: "1px solid #e6ebe6", md: "none" },
-              p: { xs: 3, md: 4 },
+              p: { xs: 2.5, md: 4 },
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
@@ -429,405 +841,568 @@ function Signup() {
             </Typography>
           </Box>
 
-          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+          <CardContent
+            sx={{
+              p: { xs: 2, md: 3 },
+              height: "100%",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
               회원가입
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               아래 정보를 입력하고 계정을 만들어보세요.
             </Typography>
 
-            <Box component="form" onSubmit={handleSubmit}>
+            <Box
+              component="form"
+              onSubmit={handleSubmit}
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                flex: 1,
+              }}
+            >
+              {/* 소셜 로그인 여부를 백엔드에 전달하기 위한 hidden 값 */}
               <input type="hidden" name="social_provider" value="local" />
 
-              <Stack spacing={2}>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "1fr 120px" },
-                    gap: 1.2,
-                    alignItems: "start",
-                  }}
-                >
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="아이디"
-                    name="userid"
-                    value={form.userid}
-                    onChange={handleChange}
-                    placeholder="영문/숫자 8~12자"
-                    error={!!errors.userid || (!!idMsg && !idChecked)}
-                    helperText={errors.userid || idMsg || " "}
-                  />
-                  <Button
-                    type="button"
-                    variant="contained"
-                    onClick={checkDuplicateId}
+              <Box sx={{ flex: 1 }}>
+                <Stack spacing={1.2}>
+                  <Box
                     sx={{
-                      height: 40,
-                      borderRadius: 2,
-                      boxShadow: "none",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      "&:hover": { boxShadow: "none" },
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 120px" },
+                      gap: 1,
+                      alignItems: "start",
                     }}
                   >
-                    중복확인
-                  </Button>
-                </Box>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                    gap: 1.5,
-                  }}
-                >
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="비밀번호"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={form.password}
-                    onChange={handleChange}
-                    error={!!errors.password}
-                    helperText={errors.password || " "}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            edge="end"
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="비밀번호 확인"
-                    name="password2"
-                    type={showPassword2 ? "text" : "password"}
-                    value={form.password2}
-                    onChange={handleChange}
-                    error={!!errors.password2}
-                    helperText={errors.password2 || " "}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword2((prev) => !prev)}
-                            edge="end"
-                          >
-                            {showPassword2 ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="이름"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  error={!!errors.name}
-                  helperText={errors.name || " "}
-                />
-
-                <Divider />
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.9fr" },
-                    gap: 2,
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="아이디"
+                      name="userid"
+                      value={form.userid}
+                      onChange={handleChange}
+                      placeholder="영문/숫자 8~12자"
+                      error={!!errors.userid || (!!idMsg && !idChecked)}
+                      helperText={errors.userid || idMsg || " "}
+                    />
+                    <Button
+                      type="button"
+                      variant="contained"
+                      onClick={checkDuplicateId}
                       sx={{
-                        mb: 1,
+                        height: 40,
+                        borderRadius: 2,
+                        boxShadow: "none",
                         fontWeight: 700,
-                        color: errors.birth ? "error.main" : "text.primary",
+                        whiteSpace: "nowrap",
+                        "&:hover": { boxShadow: "none" },
                       }}
                     >
-                      생년월일
-                    </Typography>
-
-                    <Box sx={{ display: "flex", gap: 1 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        select
-                        label="년도"
-                        name="year"
-                        value={form.year}
-                        onChange={handleChange}
-                        error={!!errors.birth}
-                      >
-                        <MenuItem value="">선택</MenuItem>
-                        {years.map((year) => (
-                          <MenuItem key={year} value={year}>
-                            {year}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-
-                      <TextField
-                        fullWidth
-                        size="small"
-                        select
-                        label="월"
-                        name="month"
-                        value={form.month}
-                        onChange={handleChange}
-                        error={!!errors.birth}
-                      >
-                        <MenuItem value="">선택</MenuItem>
-                        {months.map((month) => (
-                          <MenuItem key={month} value={month}>
-                            {month}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-
-                      <TextField
-                        fullWidth
-                        size="small"
-                        select
-                        label="일"
-                        name="day"
-                        value={form.day}
-                        onChange={handleChange}
-                        error={!!errors.birth}
-                      >
-                        <MenuItem value="">선택</MenuItem>
-                        {days.map((day) => (
-                          <MenuItem key={day} value={day}>
-                            {day}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Box>
-
-                    <Typography
-                      variant="caption"
-                      color="error"
-                      sx={{ display: "block", mt: 0.5, minHeight: 18 }}
-                    >
-                      {errors.birth || " "}
-                    </Typography>
+                      중복확인
+                    </Button>
                   </Box>
-
-                  <FormControl error={!!errors.gender}>
-                    <FormLabel sx={{ fontWeight: 700, mb: 0.6 }}>
-                      성별
-                    </FormLabel>
-                    <RadioGroup
-                      row
-                      name="gender"
-                      value={form.gender}
-                      onChange={handleChange}
-                    >
-                      <FormControlLabel
-                        value="male"
-                        control={<Radio size="small" />}
-                        label="남자"
-                      />
-                      <FormControlLabel
-                        value="female"
-                        control={<Radio size="small" />}
-                        label="여자"
-                      />
-                    </RadioGroup>
-                    <Typography
-                      variant="caption"
-                      color="error"
-                      sx={{ minHeight: 18 }}
-                    >
-                      {errors.gender || " "}
-                    </Typography>
-                  </FormControl>
-                </Box>
-
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ mb: 1, fontWeight: 700 }}
-                  >
-                    휴대폰 번호
-                  </Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="010"
-                      name="phone1"
-                      value={form.phone1}
-                      onChange={handleNumberChange}
-                      inputProps={{ maxLength: 3 }}
-                      error={!!errors.phone1}
-                    />
-                    <Typography>-</Typography>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="1234"
-                      name="phone2"
-                      value={form.phone2}
-                      onChange={handleNumberChange}
-                      inputProps={{ maxLength: 4 }}
-                      error={!!errors.phone1}
-                    />
-                    <Typography>-</Typography>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="5678"
-                      name="phone3"
-                      value={form.phone3}
-                      onChange={handleNumberChange}
-                      inputProps={{ maxLength: 4 }}
-                      error={!!errors.phone1}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    color="error"
-                    sx={{ display: "block", mt: 0.5, minHeight: 18 }}
-                  >
-                    {errors.phone1 || " "}
-                  </Typography>
-                </Box>
-
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="통신사"
-                  name="telecomProvider"
-                  value={form.telecomProvider}
-                  onChange={handleChange}
-                  error={!!errors.telecomProvider}
-                  helperText={errors.telecomProvider || " "}
-                >
-                  <MenuItem value="">선택</MenuItem>
-                  <MenuItem value="SKT">SKT</MenuItem>
-                  <MenuItem value="KT">KT</MenuItem>
-                  <MenuItem value="LGU+">LGU+</MenuItem>
-                  <MenuItem value="알뜰폰">알뜰폰</MenuItem>
-                </TextField>
-
-                <Divider />
-
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ mb: 1, fontWeight: 700 }}
-                  >
-                    이메일
-                  </Typography>
 
                   <Box
                     sx={{
                       display: "grid",
                       gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                      gap: 1.2,
+                      gap: 1,
                     }}
                   >
                     <TextField
                       fullWidth
                       size="small"
-                      label="이메일 아이디"
-                      name="emailId"
-                      value={form.emailId}
+                      label="비밀번호"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
                       onChange={handleChange}
-                      placeholder="example"
-                      error={!!errors.emailId || (!!emailMsg && !emailChecked)}
-                      helperText={errors.emailId || " "}
+                      error={!!errors.password}
+                      helperText={errors.password || " "}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword((prev) => !prev)}
+                              edge="end"
+                            >
+                              {showPassword ? (
+                                <VisibilityOff />
+                              ) : (
+                                <Visibility />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
                     />
 
                     <TextField
                       fullWidth
                       size="small"
-                      label="도메인"
-                      name="emailDomain"
-                      value={form.emailDomain}
+                      label="비밀번호 확인"
+                      name="password2"
+                      type={showPassword2 ? "text" : "password"}
+                      value={form.password2}
                       onChange={handleChange}
-                      placeholder="domain.com"
-                      error={!!errors.emailDomain}
-                      helperText={errors.emailDomain || " "}
-                      InputProps={{ readOnly: domainReadOnly }}
+                      error={!!errors.password2}
+                      helperText={errors.password2 || " "}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword2((prev) => !prev)}
+                              edge="end"
+                            >
+                              {showPassword2 ? (
+                                <VisibilityOff />
+                              ) : (
+                                <Visibility />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
                     />
+                  </Box>
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="이름"
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    error={!!errors.name}
+                    helperText={errors.name || " "}
+                  />
+
+                  <Divider sx={{ my: 0.25 }} />
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.9fr" },
+                      gap: 1.2,
+                      alignItems: "start",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          mb: 0.75,
+                          fontWeight: 700,
+                          color: errors.birth ? "error.main" : "text.primary",
+                        }}
+                      >
+                        생년월일
+                      </Typography>
+
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(3, 1fr)",
+                          gap: 1,
+                        }}
+                      >
+                        <TextField
+                          fullWidth
+                          size="small"
+                          select
+                          label="년도"
+                          name="year"
+                          value={form.year}
+                          onChange={handleChange}
+                          error={!!errors.birth}
+                        >
+                          <MenuItem value="">선택</MenuItem>
+                          {years.map((year) => (
+                            <MenuItem key={year} value={year}>
+                              {year}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        <TextField
+                          fullWidth
+                          size="small"
+                          select
+                          label="월"
+                          name="month"
+                          value={form.month}
+                          onChange={handleChange}
+                          error={!!errors.birth}
+                        >
+                          <MenuItem value="">선택</MenuItem>
+                          {months.map((month) => (
+                            <MenuItem key={month} value={month}>
+                              {month}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        <TextField
+                          fullWidth
+                          size="small"
+                          select
+                          label="일"
+                          name="day"
+                          value={form.day}
+                          onChange={handleChange}
+                          error={!!errors.birth}
+                        >
+                          <MenuItem value="">선택</MenuItem>
+                          {days.map((day) => (
+                            <MenuItem key={day} value={day}>
+                              {day}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Box>
+
+                      <Typography
+                        variant="caption"
+                        color="error"
+                        sx={{ display: "block", mt: 0.4, minHeight: 18 }}
+                      >
+                        {errors.birth || " "}
+                      </Typography>
+                    </Box>
+
+                    <FormControl error={!!errors.gender}>
+                      <FormLabel sx={{ fontWeight: 700, mb: 0.25 }}>
+                        성별
+                      </FormLabel>
+                      <RadioGroup
+                        row
+                        name="gender"
+                        value={form.gender}
+                        onChange={handleChange}
+                      >
+                        <FormControlLabel
+                          value="male"
+                          control={<Radio size="small" />}
+                          label="남자"
+                        />
+                        <FormControlLabel
+                          value="female"
+                          control={<Radio size="small" />}
+                          label="여자"
+                        />
+                      </RadioGroup>
+                      <Typography
+                        variant="caption"
+                        color="error"
+                        sx={{ minHeight: 18 }}
+                      >
+                        {errors.gender || " "}
+                      </Typography>
+                    </FormControl>
                   </Box>
 
                   <Box
                     sx={{
                       display: "grid",
-                      gridTemplateColumns: { xs: "1fr", sm: "180px 140px" },
+                      gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.8fr" },
                       gap: 1.2,
-                      mt: 0.5,
+                      alignItems: "start",
                     }}
                   >
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ mb: 0.75, fontWeight: 700 }}
+                      >
+                        휴대폰 번호
+                      </Typography>
+
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 12px 1fr 12px 1fr",
+                          alignItems: "center",
+                          gap: 0.4,
+                        }}
+                      >
+                        <TextField
+                          size="small"
+                          fullWidth
+                          placeholder="010"
+                          name="phone1"
+                          value={form.phone1}
+                          onChange={handleNumberChange}
+                          inputProps={{ maxLength: 3 }}
+                          error={!!errors.phone1}
+                        />
+                        <Typography textAlign="center">-</Typography>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          placeholder="1234"
+                          name="phone2"
+                          value={form.phone2}
+                          onChange={handleNumberChange}
+                          inputProps={{ maxLength: 4 }}
+                          error={!!errors.phone1}
+                        />
+                        <Typography textAlign="center">-</Typography>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          placeholder="5678"
+                          name="phone3"
+                          value={form.phone3}
+                          onChange={handleNumberChange}
+                          inputProps={{ maxLength: 4 }}
+                          error={!!errors.phone1}
+                        />
+                      </Box>
+
+                      <Typography
+                        variant="caption"
+                        color="error"
+                        sx={{ display: "block", mt: 0.4, minHeight: 18 }}
+                      >
+                        {errors.phone1 || " "}
+                      </Typography>
+                    </Box>
+
                     <TextField
                       select
+                      fullWidth
                       size="small"
-                      label="도메인 선택"
-                      defaultValue=""
-                      onChange={handleDomainSelect}
+                      label="통신사"
+                      name="telecomProvider"
+                      value={form.telecomProvider}
+                      onChange={handleChange}
+                      error={!!errors.telecomProvider}
+                      helperText={errors.telecomProvider || " "}
+                      sx={{ mt: { xs: 0, lg: 3.1 } }}
                     >
-                      <MenuItem value="">직접입력</MenuItem>
-                      <MenuItem value="gmail.com">gmail.com</MenuItem>
-                      <MenuItem value="naver.com">naver.com</MenuItem>
-                      <MenuItem value="daum.net">daum.net</MenuItem>
+                      <MenuItem value="">선택</MenuItem>
+                      <MenuItem value="SKT">SKT</MenuItem>
+                      <MenuItem value="KT">KT</MenuItem>
+                      <MenuItem value="LGU+">LGU+</MenuItem>
+                      <MenuItem value="알뜰폰">알뜰폰</MenuItem>
                     </TextField>
-
-                    <Button
-                      type="button"
-                      variant="outlined"
-                      onClick={checkDuplicateEmail}
-                      sx={{
-                        height: 40,
-                        borderRadius: 2,
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      이메일 확인
-                    </Button>
                   </Box>
 
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      mt: 1,
-                      minHeight: 20,
-                      color: emailChecked ? "success.main" : "error.main",
-                    }}
-                  >
-                    {emailMsg || " "}
-                  </Typography>
-                </Box>
+                  <Divider sx={{ my: 0.25 }} />
 
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ mb: 0.75, fontWeight: 700 }}
+                    >
+                      이메일
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 120px" },
+                        gap: 1,
+                        alignItems: "start",
+                      }}
+                    >
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="이메일 아이디"
+                        name="emailId"
+                        value={form.emailId}
+                        onChange={handleChange}
+                        placeholder="example"
+                        error={!!errors.emailId}
+                        helperText={errors.emailId || " "}
+                      />
+
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="도메인"
+                        name="emailDomain"
+                        value={form.emailDomain}
+                        onChange={handleChange}
+                        placeholder="domain.com"
+                        error={!!errors.emailDomain}
+                        helperText={errors.emailDomain || " "}
+                        InputProps={{ readOnly: domainReadOnly }}
+                      />
+
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={sendEmailCode}
+                        sx={{
+                          height: 40,
+                          borderRadius: 2,
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        이메일 확인
+                      </Button>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        mt: 0.4,
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "1fr 120px" },
+                        gap: 1,
+                        alignItems: "start",
+                      }}
+                    >
+                      <TextField
+                        select
+                        size="small"
+                        label="도메인 선택"
+                        defaultValue=""
+                        onChange={handleDomainSelect}
+                      >
+                        <MenuItem value="">직접입력</MenuItem>
+                        <MenuItem value="gmail.com">gmail.com</MenuItem>
+                        <MenuItem value="naver.com">naver.com</MenuItem>
+                        <MenuItem value="daum.net">daum.net</MenuItem>
+                      </TextField>
+
+                      <Box sx={{ minHeight: 40 }} />
+                    </Box>
+
+                    <Box
+                      sx={{
+                        mt: 0.8,
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          md: "1fr 72px 110px",
+                        },
+                        gap: 1,
+                        alignItems: "start",
+                      }}
+                    >
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="인증코드"
+                        name="emailCode"
+                        value={form.emailCode}
+                        onChange={handleCodeChange}
+                        placeholder="6자리 숫자 입력"
+                        disabled={
+                          !emailCodeSent && !showResendButton && !emailVerified
+                        }
+                        error={!!errors.emailCode}
+                        helperText={errors.emailCode || " "}
+                      />
+
+                      <Box
+                        sx={{
+                          height: 40,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontWeight: 700,
+                            color: "error.main",
+                            visibility:
+                              emailCodeSent && !emailVerified && timeLeft > 0
+                                ? "visible"
+                                : "hidden",
+                          }}
+                        >
+                          {emailCodeSent && !emailVerified && timeLeft > 0
+                            ? formatTime(timeLeft)
+                            : "00:00"}
+                        </Typography>
+                      </Box>
+
+                      {showResendButton && !emailVerified ? (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          color="warning"
+                          onClick={sendEmailCode}
+                          sx={{
+                            height: 40,
+                            borderRadius: 2,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          재발송
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="contained"
+                          onClick={verifyEmailCode}
+                          disabled={!emailCodeSent || emailVerified}
+                          sx={{
+                            height: 40,
+                            borderRadius: 2,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            boxShadow: "none",
+                            "&:hover": {
+                              boxShadow: "none",
+                            },
+                          }}
+                        >
+                          인증확인
+                        </Button>
+                      )}
+                    </Box>
+
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        mt: 0.6,
+                        minHeight: 20,
+                        color: emailVerified
+                          ? "success.main"
+                          : emailCodeMsg
+                            ? "error.main"
+                            : "text.secondary",
+                      }}
+                    >
+                      {emailVerified
+                        ? "이메일 인증이 완료되었습니다."
+                        : emailCodeMsg || emailMsg || " "}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+
+              <Box
+                sx={{
+                  position: "sticky",
+                  bottom: 0,
+                  mt: 1.5,
+                  pt: 1.2,
+                  pb: 0.4,
+                  bgcolor: "#fff",
+                  borderTop: "1px solid #e6ebe6",
+                }}
+              >
                 <Button
                   type="submit"
                   variant="contained"
                   fullWidth
                   disabled={isSubmitting}
                   sx={{
-                    mt: 1,
-                    py: 1.3,
+                    py: 1.1,
                     borderRadius: 2.5,
                     fontWeight: 700,
                     fontSize: "1rem",
@@ -837,9 +1412,9 @@ function Signup() {
                     },
                   }}
                 >
-                  회원가입
+                  {isSubmitting ? "가입 중..." : "회원가입"}
                 </Button>
-              </Stack>
+              </Box>
             </Box>
           </CardContent>
         </Box>
