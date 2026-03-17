@@ -43,33 +43,26 @@ export default function Login() {
 
   const validate = () => {
     const newErrors = {};
+    let isValid = true;
 
     if (!form.userId.trim()) {
       newErrors.userId = "아이디를 입력해주세요.";
-    } else if (form.userId.trim().length < 8) {
-      newErrors.userId = "아이디는 8자 이상이어야 합니다.";
+      isValid = false;
     }
 
     if (!form.password.trim()) {
       newErrors.password = "비밀번호를 입력해주세요.";
-    } else if (form.password.length < 8) {
-      newErrors.password = "비밀번호는 8자 이상이어야 합니다.";
+      isValid = false;
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return isValid;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate() || isSubmitting) return;
-
-    const payload = {
-      username: form.userId.trim(),
-      password: form.password,
-      social_provider: "local",
-    };
 
     try {
       setIsSubmitting(true);
@@ -80,15 +73,17 @@ export default function Login() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          username: form.userId.trim(),
+          password: form.password,
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         const loginUser = {
-          username: form.userId.trim(),
-          social_provider: "local",
+          userId: form.userId.trim(),
           isLogin: true,
         };
 
@@ -96,7 +91,7 @@ export default function Login() {
         alert(data.message || "로그인 성공!");
         navigate("/");
       } else {
-        alert(data.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
+        alert(data.message || data.error || "로그인에 실패했습니다.");
       }
     } catch (error) {
       console.error("로그인 오류:", error);
@@ -138,122 +133,80 @@ export default function Login() {
                 letterSpacing: 0.3,
                 mb: 1.5,
                 textDecoration: "none",
-                color: "inherit",
-                cursor: "pointer",
-                transition: "opacity 0.2s ease",
-                "&:hover": {
-                  opacity: 0.75,
-                },
+                color: "#1f2a1f",
               }}
             >
               🍃 NEARGARDEN
             </Typography>
 
             <Typography
-              variant="body1"
-              align="center"
+              variant="body2"
               color="text.secondary"
+              align="center"
               sx={{ mb: 4 }}
             >
               근린공원 서비스를 이용하려면 로그인해주세요.
             </Typography>
 
             <Box component="form" onSubmit={handleSubmit}>
-              <input type="hidden" name="social_provider" value="local" />
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  label="아이디"
+                  name="userId"
+                  value={form.userId}
+                  onChange={handleChange}
+                  error={!!errors.userId}
+                  helperText={errors.userId}
+                />
 
-              <TextField
-                fullWidth
-                label="아이디"
-                name="userId"
-                value={form.userId}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.userId}
-                helperText={errors.userId}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
+                <TextField
+                  fullWidth
+                  label="비밀번호"
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  error={!!errors.password}
+                  helperText={errors.password}
+                />
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  disabled={isSubmitting}
+                  sx={{
+                    mt: 1,
+                    py: 1.3,
+                    fontWeight: 700,
                     borderRadius: 2,
-                    backgroundColor: "#fff",
-                  },
-                }}
-              />
-
-              <TextField
-                fullWidth
-                label="비밀번호"
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                margin="normal"
-                error={!!errors.password}
-                helperText={errors.password}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                    backgroundColor: "#fff",
-                  },
-                }}
-              />
-
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={isSubmitting}
-                sx={{
-                  mt: 3,
-                  py: 1.4,
-                  borderRadius: 2,
-                  fontWeight: 700,
-                  boxShadow: "none",
-                  "&:hover": {
                     boxShadow: "none",
-                  },
-                }}
-              >
-                로그인
-              </Button>
-
-              <Stack
-                direction="row"
-                justifyContent="center"
-                spacing={2}
-                sx={{ mt: 2 }}
-              >
-                <MuiLink
-                  component={Link}
-                  to="/find-id"
-                  underline="hover"
-                  sx={{ fontWeight: 600, fontSize: 14 }}
+                  }}
                 >
-                  아이디 찾기
-                </MuiLink>
-
-                <Typography color="text.disabled">|</Typography>
-
-                <MuiLink
-                  component={Link}
-                  to="/find-password"
-                  underline="hover"
-                  sx={{ fontWeight: 600, fontSize: 14 }}
-                >
-                  비밀번호 재설정
-                </MuiLink>
-
-                <Typography color="text.disabled">|</Typography>
-
-                <MuiLink
-                  component={Link}
-                  to="/signup"
-                  underline="hover"
-                  sx={{ fontWeight: 600, fontSize: 14 }}
-                >
-                  회원가입
-                </MuiLink>
+                  로그인
+                </Button>
               </Stack>
             </Box>
+
+            <Stack
+              direction="row"
+              spacing={1}
+              justifyContent="center"
+              sx={{ mt: 3, flexWrap: "wrap" }}
+            >
+              <MuiLink component={Link} to="/find-id" underline="hover">
+                아이디 찾기
+              </MuiLink>
+              <Typography color="text.secondary">|</Typography>
+              <MuiLink component={Link} to="/find-password" underline="hover">
+                비밀번호 재설정
+              </MuiLink>
+              <Typography color="text.secondary">|</Typography>
+              <MuiLink component={Link} to="/signup" underline="hover">
+                회원가입
+              </MuiLink>
+            </Stack>
           </CardContent>
         </Card>
       </Container>
