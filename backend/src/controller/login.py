@@ -9,7 +9,7 @@ from util.database import engine
 # pip install PyJWT 설치
 import jwt   # JWT 토큰 처리용
 
-from model.login import LoginRequest, PasswordChangeRequest   
+from schema.login import LoginRequest, PasswordChangeRequest   
 import service.login as login_service
 from service.login import check_user_exists
 

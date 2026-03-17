@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from service.signup import register_user
 from util.database import engine  # DB 연결 
-from model.signup import SignupRequest
+from schema.signup import SignupRequest
 
 router = APIRouter()
 

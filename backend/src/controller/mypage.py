@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Path, Body, status, Request
 from fastapi.responses import JSONResponse
 import service.mypage as mypage_service
-from model.mypage import PatchUserRequest
+from schema.mypage import PatchUserRequest
 
 router = APIRouter()
 
