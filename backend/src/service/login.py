@@ -21,7 +21,7 @@ def verify_user(username: str, password: str) -> bool:
     try :
         user_record = get_user(db, username=username)
         if user_record:
-            stored_hash = user_record.hashed_password # DB에서 불러온 해시
+            stored_hash = user_record["hashed_password"] # DB에서 불러온 해시
             if isinstance(stored_hash, str):
                 stored_hash = stored_hash.encode('utf-8')
 

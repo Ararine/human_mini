@@ -12,10 +12,11 @@ async def register_user(
     full_name: str,
     email: str,
     gender: str,
+    telecom_provider: str,    
+    social_provider: str,
+    social_id=None,
     birth_date=None,
     phone_number=None,
-    telecom_provider=None,
-          
 ):
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     hashed_str = hashed.decode('utf-8')
@@ -30,8 +31,8 @@ async def register_user(
             email=email,
             birth_date=birth_date,
             gender=gender,
-            social_provider="local",
-            social_id="2",
+            social_provider=social_provider,
+            social_id=social_id,
             phone_number=phone_number,
             telecom_provider=telecom_provider
         )   

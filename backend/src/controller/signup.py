@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from service.signup import register_user, heck_duplicate_username
+from service.signup import register_user, check_duplicate_username
 from util.database import engine  # DB 연결 
 from schema.signup import SignupRequest
 
@@ -15,10 +15,9 @@ async def register(data: SignupRequest):
     try:
         await register_user(
             data.username, data.password, data.full_name,
-            data.email, data.gender, data.birth_date,
-            data.phone_number, data.telecom_provider,
-            data.social_provider, data.social_id  
-
+            data.email, data.gender, data.telecom_provider,
+            data.social_provider, data.social_id, 
+            data.birth_date, data.phone_number
         )
         return JSONResponse(status_code=status.HTTP_201_CREATED, 
                             content={"message": "회원가입 완료"})
