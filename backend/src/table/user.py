@@ -29,7 +29,6 @@ class User(Base):
     
     # 핸드폰 및 부가 정보
     phone_number = Column(String(20), nullable=True)
-    is_verified = Column(Boolean, default=False)
     telecom_provider = Column(String(20), nullable=True) 
     
     # 시간 정보

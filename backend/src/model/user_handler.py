@@ -39,7 +39,6 @@ def create_user(
             social_provider=social_provider,
             social_id=social_id,
             phone_number=phone_number,
-            is_verified=True,  # 테스트를 위해 기본 true 설정
             telecom_provider=telecom_provider
         )
     
