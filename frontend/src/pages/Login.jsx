@@ -46,14 +46,14 @@ export default function Login() {
 
     if (!form.userId.trim()) {
       newErrors.userId = "아이디를 입력해주세요.";
-    } else if (form.userId.trim().length < 4) {
-      newErrors.userId = "아이디는 4자 이상이어야 합니다.";
+    } else if (form.userId.trim().length < 8) {
+      newErrors.userId = "아이디는 8자 이상이어야 합니다.";
     }
 
     if (!form.password.trim()) {
       newErrors.password = "비밀번호를 입력해주세요.";
-    } else if (form.password.length < 4) {
-      newErrors.password = "비밀번호는 4자 이상이어야 합니다.";
+    } else if (form.password.length < 8) {
+      newErrors.password = "비밀번호는 8자 이상이어야 합니다.";
     }
 
     setErrors(newErrors);
@@ -68,6 +68,7 @@ export default function Login() {
     const payload = {
       username: form.userId.trim(),
       password: form.password,
+      social_provider: "local",
     };
 
     try {
@@ -87,6 +88,7 @@ export default function Login() {
       if (response.ok) {
         const loginUser = {
           username: form.userId.trim(),
+          social_provider: "local",
           isLogin: true,
         };
 
@@ -157,6 +159,8 @@ export default function Login() {
             </Typography>
 
             <Box component="form" onSubmit={handleSubmit}>
+              <input type="hidden" name="social_provider" value="local" />
+
               <TextField
                 fullWidth
                 label="아이디"
