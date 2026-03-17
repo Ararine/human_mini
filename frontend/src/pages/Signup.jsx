@@ -31,6 +31,8 @@ const EXISTING_EMAILS = ["test@gmail.com", "admin@naver.com", "user@daum.net"];
 
 // =========================
 // [유효성 검사 정규식]
+// 상세 메시지는 validateForm에서 분리해서 처리하고,
+// 아래 정규식은 최종 검사용으로 유지
 // =========================
 const ID_REGEX = /^[A-Za-z0-9]{8,12}$/;
 const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
@@ -105,9 +107,6 @@ function Signup() {
 
   // =========================
   // [UI 상태]
-  // domainReadOnly: 도메인 선택으로 고정했을 때 직접입력 막기
-  // showPassword/showPassword2: 비밀번호 표시 여부
-  // isSubmitting: 회원가입 요청 중 여부
   // =========================
   const [domainReadOnly, setDomainReadOnly] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -116,9 +115,6 @@ function Signup() {
 
   // =========================
   // [이메일 인증 UI 상태]
-  // emailCodeSent: 인증코드 발송 상태
-  // showResendButton: 인증시간 만료 후 재발송 버튼 표시 여부
-  // timeLeft: 남은 시간(초)
   // =========================
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
@@ -126,12 +122,6 @@ function Signup() {
 
   // =========================
   // [임시 프론트 테스트용 인증 데이터]
-  // sentEmailCode: 프론트에서 임시 생성한 6자리 인증코드
-  // codeExpireAt: 인증코드 만료 시각(timestamp)
-  //
-  // 추후 실제 백엔드 연결 시:
-  // - 이 코드는 프론트에 저장하지 않는 것이 맞음
-  // - 서버(DB/Redis)가 인증코드와 만료시간을 관리해야 함
   // =========================
   const [sentEmailCode, setSentEmailCode] = useState("");
   const [codeExpireAt, setCodeExpireAt] = useState(null);
@@ -155,8 +145,6 @@ function Signup() {
 
   // =========================
   // [아이디 중복확인 초기화]
-  // 사용자가 아이디를 다시 수정하면
-  // 기존 중복확인 결과는 무효 처리
   // =========================
   const resetIdCheck = () => {
     setIdChecked(false);
@@ -165,8 +153,6 @@ function Signup() {
 
   // =========================
   // [이메일 인증 관련 상태 전체 초기화]
-  // 이메일 아이디/도메인이 바뀌면
-  // 이전 인증 결과는 모두 무효 처리해야 함
   // =========================
   const resetEmailVerificationAll = () => {
     setEmailChecked(false);
@@ -187,10 +173,8 @@ function Signup() {
     updateForm(name, value);
     clearFieldError(name);
 
-    // 아이디 변경 시 중복확인 초기화
     if (name === "userid") resetIdCheck();
 
-    // 이메일 관련 값 변경 시 인증 상태 초기화
     if (name === "emailId" || name === "emailDomain") {
       resetEmailVerificationAll();
     }
@@ -239,11 +223,6 @@ function Signup() {
 
   // =========================
   // [임시 인증코드 생성 함수]
-  // 100000 ~ 999999 사이의 6자리 난수 생성
-  //
-  // 추후 실제 백엔드 연결 시:
-  // 이 함수는 프론트에서 쓰지 않고
-  // 서버에서 생성해서 이메일 발송까지 처리하는 것이 맞음
   // =========================
   const generateSixDigitCode = () => {
     return String(Math.floor(100000 + Math.random() * 900000));
@@ -258,10 +237,6 @@ function Signup() {
 
   // =========================
   // [이메일 인증 타이머]
-  // 인증코드 발송 후 1초마다 남은 시간 감소
-  // 시간 만료 시:
-  // - 인증코드 입력 상태 종료
-  // - 재발송 버튼 표시
   // =========================
   useEffect(() => {
     if (!emailCodeSent || !codeExpireAt) return;
@@ -288,14 +263,7 @@ function Signup() {
 
   // =========================
   // [아이디 중복확인]
-  //
-  // 현재:
-  // - EXISTING_IDS 배열을 사용한 프론트 임시 검사
-  //
-  // 추후 백엔드 연결 시:
-  // - 서버에 아이디 중복 여부를 요청
-  // - 예: GET /check-username?username=...
-  // - 응답 예시: { exists: true } / { exists: false }
+  // 네가 원한 방식대로 길이/형식을 나눠서 검사
   // =========================
   const checkDuplicateId = async () => {
     const userid = form.userid.trim();
@@ -308,72 +276,54 @@ function Signup() {
       setIdChecked(false);
       setIdMsg("");
       return;
-    }
-
-    if (!ID_REGEX.test(userid)) {
+    } else if (userid.length < 8) {
       setErrors((prev) => ({
         ...prev,
-        userid: "아이디는 영문/숫자 포함 8~12자여야 합니다.",
+        userid: "아이디는 8자 이상이어야 합니다.",
+      }));
+      setIdChecked(false);
+      setIdMsg("");
+      return;
+    } else if (userid.length > 12) {
+      setErrors((prev) => ({
+        ...prev,
+        userid: "아이디는 12자 이하여야 합니다.",
+      }));
+      setIdChecked(false);
+      setIdMsg("");
+      return;
+    } else if (!/^[A-Za-z0-9]+$/.test(userid)) {
+      setErrors((prev) => ({
+        ...prev,
+        userid: "아이디는 영문과 숫자만 입력 가능합니다.",
       }));
       setIdChecked(false);
       setIdMsg("");
       return;
     }
 
-    // =========================
-    // [현재 임시 방식]
-    // 프론트 배열로만 중복 여부 확인
-    // =========================
-    if (EXISTING_IDS.includes(userid)) {
-      setIdMsg("이미 사용 중인 아이디입니다.");
-      setIdChecked(false);
-      return;
-    }
-
-    setIdMsg("사용 가능한 아이디입니다.");
-    setIdChecked(true);
-
-    // =========================
-    // [추후 실제 API 연결 방식]
-    // 백엔드에 username 중복 여부 확인 요청
-    // =========================
-    /*
     try {
       const response = await fetch(
-        `http://localhost:5000/check-username?username=${encodeURIComponent(userid)}`
+        `http://localhost:5000/check-username/${userid}`,
       );
-
       const data = await response.json();
 
-      if (data.exists) {
+      if (data.isDuplicate) {
         setIdMsg("이미 사용 중인 아이디입니다.");
         setIdChecked(false);
       } else {
         setIdMsg("사용 가능한 아이디입니다.");
         setIdChecked(true);
       }
-    } catch (error) {
-      console.error("아이디 중복확인 오류:", error);
-      setIdMsg("서버와 연결할 수 없습니다.");
+    } catch (err) {
+      console.error("아이디 중복확인 오류:", err);
+      setIdMsg("서버 오류가 발생했습니다.");
       setIdChecked(false);
     }
-    */
   };
 
   // =========================
   // [이메일 인증코드 발송]
-  //
-  // 현재:
-  // - 이메일 중복 여부를 프론트 배열로 확인
-  // - 프론트에서 6자리 코드 생성
-  // - 콘솔에 인증코드 출력
-  // - 5분 타이머 시작
-  //
-  // 추후 백엔드 연결 시:
-  // - 서버에서 이메일 중복검사
-  // - 서버에서 6자리 코드 생성
-  // - 서버에서 메일 발송
-  // - 서버에서 만료시간 저장(DB/Redis)
   // =========================
   const sendEmailCode = async () => {
     if (!form.emailId.trim()) {
@@ -443,21 +393,8 @@ function Signup() {
       // 현재는 실제 메일 전송 대신 콘솔에 출력
       console.log("임시 이메일 인증코드:", code);
 
-      // =========================
-      // [추후 실제 API 연결 방식]
-      // 서버에 인증코드 발송 요청
-      //
-      // 예상 API 예시:
-      // POST /send-email-code
-      // body: { email: "test@gmail.com" }
-      //
-      // 서버 역할:
-      // 1. 이메일 중복 확인
-      // 2. 6자리 코드 생성
-      // 3. 이메일 전송
-      // 4. 만료시간 저장
-      // =========================
       /*
+      // TODO: 실제 이메일 인증코드 발송 API 연결
       const response = await fetch("http://localhost:5000/send-email-code", {
         method: "POST",
         headers: {
@@ -494,15 +431,6 @@ function Signup() {
 
   // =========================
   // [이메일 인증코드 검증]
-  //
-  // 현재:
-  // - 프론트에 저장된 sentEmailCode와 비교
-  // - codeExpireAt으로 만료 여부 체크
-  //
-  // 추후 백엔드 연결 시:
-  // - 서버에 email + code 전달
-  // - 서버가 코드 일치/만료 여부 판단
-  // - 응답에 따라 인증 완료 처리
   // =========================
   const verifyEmailCode = async () => {
     if (!form.emailCode.trim()) {
@@ -521,7 +449,6 @@ function Signup() {
       return;
     }
 
-    // 현재 임시 방식: 프론트 만료시간 검사
     if (!codeExpireAt || Date.now() > codeExpireAt) {
       setEmailVerified(false);
       setEmailCodeMsg("인증코드가 만료되었습니다. 재발송해주세요.");
@@ -546,21 +473,8 @@ function Signup() {
         setEmailCodeMsg("인증코드가 일치하지 않습니다.");
       }
 
-      // =========================
-      // [추후 실제 API 연결 방식]
-      // 서버에 인증코드 검증 요청
-      //
-      // 예상 API 예시:
-      // POST /verify-email-code
-      // body: { email: "...", code: "123456" }
-      //
-      // 서버 역할:
-      // 1. 해당 이메일의 최신 인증코드 조회
-      // 2. 만료 여부 확인
-      // 3. 코드 일치 여부 확인
-      // 4. 인증 완료 처리
-      // =========================
       /*
+      // TODO: 실제 이메일 인증코드 검증 API 연결
       const response = await fetch("http://localhost:5000/verify-email-code", {
         method: "POST",
         headers: {
@@ -595,6 +509,7 @@ function Signup() {
   // =========================
   // [전체 폼 검증]
   // 회원가입 버튼 클릭 시 최종 검사
+  // 네가 원한 방식대로 길이/형식 분리
   // =========================
   const validateForm = () => {
     const newErrors = {};
@@ -608,33 +523,51 @@ function Signup() {
     const phone2 = form.phone2.trim();
     const phone3 = form.phone3.trim();
 
+    // 아이디 검사
     if (!id) {
       newErrors.userid = "아이디를 입력하세요.";
-    } else if (!ID_REGEX.test(id)) {
-      newErrors.userid = "아이디는 영문/숫자 포함 8~12자여야 합니다.";
+    } else if (id.length < 8) {
+      newErrors.userid = "아이디는 8자 이상이어야 합니다.";
+    } else if (id.length > 12) {
+      newErrors.userid = "아이디는 12자 이하여야 합니다.";
+    } else if (!/^[A-Za-z0-9]+$/.test(id)) {
+      newErrors.userid = "아이디는 영문과 숫자만 입력 가능합니다.";
     } else if (!idChecked) {
       newErrors.userid = "아이디 중복확인을 해주세요.";
     }
 
+    // 비밀번호 검사
     if (!pw) {
       newErrors.password = "비밀번호를 입력하세요.";
-    } else if (!PW_REGEX.test(pw)) {
-      newErrors.password =
-        "대문자, 소문자, 숫자, 특수문자를 포함한 8~20자여야 합니다.";
+    } else if (pw.length < 8) {
+      newErrors.password = "비밀번호는 8자 이상이어야 합니다.";
+    } else if (pw.length > 20) {
+      newErrors.password = "비밀번호는 20자 이하여야 합니다.";
+    } else if (!/(?=.*[a-z])/.test(pw)) {
+      newErrors.password = "비밀번호에 소문자를 포함해주세요.";
+    } else if (!/(?=.*[A-Z])/.test(pw)) {
+      newErrors.password = "비밀번호에 대문자를 포함해주세요.";
+    } else if (!/(?=.*\d)/.test(pw)) {
+      newErrors.password = "비밀번호에 숫자를 포함해주세요.";
+    } else if (!/(?=.*[!@#$%^&*])/.test(pw)) {
+      newErrors.password = "비밀번호에 특수문자를 포함해주세요.";
     }
 
+    // 비밀번호 확인
     if (!pw2) {
       newErrors.password2 = "비밀번호 확인을 입력하세요.";
     } else if (pw !== pw2) {
       newErrors.password2 = "비밀번호가 일치하지 않습니다.";
     }
 
+    // 이름 검사
     if (!username) {
       newErrors.name = "이름을 입력하세요.";
     } else if (!NAME_REGEX.test(username)) {
       newErrors.name = "이름은 한글 또는 영문만 입력 가능합니다.";
     }
 
+    // 휴대폰 번호 검사
     if (!phone1 || !phone2 || !phone3) {
       newErrors.phone1 = "휴대폰 번호를 입력하세요.";
     } else if (
@@ -645,18 +578,22 @@ function Signup() {
       newErrors.phone1 = "휴대폰 번호를 정확히 입력하세요.";
     }
 
+    // 통신사 검사
     if (!form.telecomProvider) {
       newErrors.telecomProvider = "통신사를 선택하세요.";
     }
 
+    // 성별 검사
     if (!form.gender) {
       newErrors.gender = "성별을 선택하세요.";
     }
 
+    // 생년월일 검사
     if (!form.year || !form.month || !form.day) {
       newErrors.birth = "생년월일을 선택하세요.";
     }
 
+    // 이메일 검사
     if (!form.emailId.trim()) {
       newErrors.emailId = "이메일 아이디를 입력하세요.";
     }
@@ -681,13 +618,6 @@ function Signup() {
 
   // =========================
   // [회원가입 제출]
-  //
-  // 현재:
-  // - register API 호출
-  //
-  // 백엔드 연결 시 주의:
-  // - username, full_name, email, gender 등
-  //   백엔드 필드명과 정확히 맞춰야 함
   // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -867,7 +797,6 @@ function Signup() {
                 flex: 1,
               }}
             >
-              {/* 소셜 로그인 여부를 백엔드에 전달하기 위한 hidden 값 */}
               <input type="hidden" name="social_provider" value="local" />
 
               <Box sx={{ flex: 1 }}>
