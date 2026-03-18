@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import FindId from "./pages/FindId";
 import FindPassword from "./pages/FindPassword";
+import MyPage from "./pages/MyPage";
 // import ResetPassword from "./pages/ResetPassword";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/find-id" element={<FindId />} />
       <Route path="/find-password" element={<FindPassword />} />
+      <Route path="/mypage" element={<MyPage />} />
       {/* <Route path="/reset-password" element={<ResetPassword />} /> */}
     </Routes>
   );
