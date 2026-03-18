@@ -26,16 +26,11 @@ import { Link, useNavigate } from "react-router-dom";
 // 프론트에서 중복 여부를 흉내내기 위한 임시 배열
 // 추후 실제 DB/API 연결 시 제거 가능
 // =========================
-const EXISTING_IDS = ["admin", "testuser", "hello123"];
 const EXISTING_EMAILS = ["test@gmail.com", "admin@naver.com", "user@daum.net"];
 
 // =========================
 // [유효성 검사 정규식]
-// 상세 메시지는 validateForm에서 분리해서 처리하고,
-// 아래 정규식은 최종 검사용으로 유지
 // =========================
-const ID_REGEX = /^[A-Za-z0-9]{8,12}$/;
-const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,20}$/;
 const NAME_REGEX = /^[가-힣a-zA-Z]+$/;
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const CODE_REGEX = /^\d{6}$/;
@@ -48,7 +43,6 @@ const EMAIL_EXPIRE_TIME = 300;
 
 // =========================
 // [초기 폼 상태]
-// emailCode: 이메일 인증 입력칸 값
 // =========================
 const INITIAL_FORM = {
   userid: "",
@@ -72,9 +66,6 @@ function Signup() {
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
 
-  // =========================
-  // [생년월일 select 옵션]
-  // =========================
   const years = useMemo(
     () => Array.from({ length: 101 }, (_, i) => currentYear - i),
     [currentYear],
@@ -82,51 +73,29 @@ function Signup() {
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
 
-  // =========================
-  // [기본 상태값]
-  // =========================
   const [form, setForm] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
 
-  // =========================
-  // [검증/인증 상태]
-  // idChecked: 아이디 중복확인 완료 여부
-  // emailChecked: 이메일 중복확인 + 인증코드 발송까지 진행 여부
-  // emailVerified: 이메일 인증코드 검증 완료 여부
-  // =========================
   const [idChecked, setIdChecked] = useState(false);
   const [emailChecked, setEmailChecked] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
 
-  // =========================
-  // [안내 메시지 상태]
-  // =========================
   const [idMsg, setIdMsg] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
   const [emailCodeMsg, setEmailCodeMsg] = useState("");
 
-  // =========================
-  // [UI 상태]
-  // =========================
   const [domainReadOnly, setDomainReadOnly] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // =========================
-  // [이메일 인증 UI 상태]
-  // =========================
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // =========================
-  // [임시 프론트 테스트용 인증 데이터]
-  // =========================
   const [sentEmailCode, setSentEmailCode] = useState("");
   const [codeExpireAt, setCodeExpireAt] = useState(null);
 
-  // 조합된 전체 이메일
   const email = `${form.emailId.trim()}@${form.emailDomain.trim()}`;
 
   const updateForm = (name, value) => {
@@ -143,17 +112,15 @@ function Signup() {
     }));
   };
 
-  // =========================
-  // [아이디 중복확인 초기화]
-  // =========================
   const resetIdCheck = () => {
     setIdChecked(false);
     setIdMsg("");
+    setErrors((prev) => ({
+      ...prev,
+      userid: "",
+    }));
   };
 
-  // =========================
-  // [이메일 인증 관련 상태 전체 초기화]
-  // =========================
   const resetEmailVerificationAll = () => {
     setEmailChecked(false);
     setEmailVerified(false);
@@ -188,7 +155,6 @@ function Signup() {
     }
   };
 
-  // 숫자만 입력되도록 처리
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
     const onlyNumber = value.replace(/[^0-9]/g, "");
@@ -196,7 +162,6 @@ function Signup() {
     clearFieldError("phone1");
   };
 
-  // 인증코드 6자리 숫자만 허용
   const handleCodeChange = (e) => {
     const onlyNumber = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
     updateForm("emailCode", onlyNumber);
@@ -204,7 +169,6 @@ function Signup() {
     setEmailCodeMsg("");
   };
 
-  // 이메일 도메인 select 선택 처리
   const handleDomainSelect = (e) => {
     const selectedDomain = e.target.value;
 
@@ -221,23 +185,16 @@ function Signup() {
     clearFieldError("emailDomain");
   };
 
-  // =========================
-  // [임시 인증코드 생성 함수]
-  // =========================
   const generateSixDigitCode = () => {
     return String(Math.floor(100000 + Math.random() * 900000));
   };
 
-  // 남은 시간을 mm:ss 형식으로 포맷
   const formatTime = (seconds) => {
     const min = String(Math.floor(seconds / 60)).padStart(2, "0");
     const sec = String(seconds % 60).padStart(2, "0");
     return `${min}:${sec}`;
   };
 
-  // =========================
-  // [이메일 인증 타이머]
-  // =========================
   useEffect(() => {
     if (!emailCodeSent || !codeExpireAt) return;
 
@@ -263,10 +220,18 @@ function Signup() {
 
   // =========================
   // [아이디 중복확인]
-  // 네가 원한 방식대로 길이/형식을 나눠서 검사
+  // 핵심 수정:
+  // 1. 확인 시작 시 userid 에러/메시지 초기화
+  // 2. 성공/실패 후 userid 에러를 비워서 idMsg가 보이도록 처리
   // =========================
   const checkDuplicateId = async () => {
     const userid = form.userid.trim();
+
+    setErrors((prev) => ({
+      ...prev,
+      userid: "",
+    }));
+    setIdMsg("");
 
     if (!userid) {
       setErrors((prev) => ({
@@ -274,7 +239,6 @@ function Signup() {
         userid: "아이디를 입력하세요.",
       }));
       setIdChecked(false);
-      setIdMsg("");
       return;
     } else if (userid.length < 8) {
       setErrors((prev) => ({
@@ -282,7 +246,6 @@ function Signup() {
         userid: "아이디는 8자 이상이어야 합니다.",
       }));
       setIdChecked(false);
-      setIdMsg("");
       return;
     } else if (userid.length > 12) {
       setErrors((prev) => ({
@@ -290,7 +253,6 @@ function Signup() {
         userid: "아이디는 12자 이하여야 합니다.",
       }));
       setIdChecked(false);
-      setIdMsg("");
       return;
     } else if (!/^[A-Za-z0-9]+$/.test(userid)) {
       setErrors((prev) => ({
@@ -298,7 +260,6 @@ function Signup() {
         userid: "아이디는 영문과 숫자만 입력 가능합니다.",
       }));
       setIdChecked(false);
-      setIdMsg("");
       return;
     }
 
@@ -307,6 +268,11 @@ function Signup() {
         `http://localhost:5000/check-username/${userid}`,
       );
       const data = await response.json();
+
+      setErrors((prev) => ({
+        ...prev,
+        userid: "",
+      }));
 
       if (data.isDuplicate) {
         setIdMsg("이미 사용 중인 아이디입니다.");
@@ -317,14 +283,15 @@ function Signup() {
       }
     } catch (err) {
       console.error("아이디 중복확인 오류:", err);
+      setErrors((prev) => ({
+        ...prev,
+        userid: "",
+      }));
       setIdMsg("서버 오류가 발생했습니다.");
       setIdChecked(false);
     }
   };
 
-  // =========================
-  // [이메일 인증코드 발송]
-  // =========================
   const sendEmailCode = async () => {
     if (!form.emailId.trim()) {
       setErrors((prev) => ({
@@ -359,10 +326,6 @@ function Signup() {
       return;
     }
 
-    // =========================
-    // [현재 임시 방식]
-    // 프론트 배열로 이메일 중복 여부 확인
-    // =========================
     if (EXISTING_EMAILS.includes(email)) {
       setEmailMsg("이미 가입된 이메일입니다.");
       setEmailChecked(false);
@@ -371,10 +334,6 @@ function Signup() {
     }
 
     try {
-      // =========================
-      // [현재 임시 방식]
-      // 프론트에서 인증코드 생성 및 만료시간 설정
-      // =========================
       const code = generateSixDigitCode();
       const expireAt = Date.now() + EMAIL_EXPIRE_TIME * 1000;
 
@@ -390,11 +349,9 @@ function Signup() {
       setEmailMsg("인증코드가 이메일로 전송되었습니다.");
       setEmailCodeMsg("");
 
-      // 현재는 실제 메일 전송 대신 콘솔에 출력
       console.log("임시 이메일 인증코드:", code);
 
       /*
-      // TODO: 실제 이메일 인증코드 발송 API 연결
       const response = await fetch("http://localhost:5000/send-email-code", {
         method: "POST",
         headers: {
@@ -429,9 +386,6 @@ function Signup() {
     }
   };
 
-  // =========================
-  // [이메일 인증코드 검증]
-  // =========================
   const verifyEmailCode = async () => {
     if (!form.emailCode.trim()) {
       setErrors((prev) => ({
@@ -458,10 +412,6 @@ function Signup() {
     }
 
     try {
-      // =========================
-      // [현재 임시 방식]
-      // 프론트에서 코드 비교
-      // =========================
       if (form.emailCode.trim() === sentEmailCode) {
         setEmailVerified(true);
         setEmailCodeSent(false);
@@ -474,7 +424,6 @@ function Signup() {
       }
 
       /*
-      // TODO: 실제 이메일 인증코드 검증 API 연결
       const response = await fetch("http://localhost:5000/verify-email-code", {
         method: "POST",
         headers: {
@@ -506,11 +455,6 @@ function Signup() {
     }
   };
 
-  // =========================
-  // [전체 폼 검증]
-  // 회원가입 버튼 클릭 시 최종 검사
-  // 네가 원한 방식대로 길이/형식 분리
-  // =========================
   const validateForm = () => {
     const newErrors = {};
 
@@ -523,7 +467,6 @@ function Signup() {
     const phone2 = form.phone2.trim();
     const phone3 = form.phone3.trim();
 
-    // 아이디 검사
     if (!id) {
       newErrors.userid = "아이디를 입력하세요.";
     } else if (id.length < 8) {
@@ -536,7 +479,6 @@ function Signup() {
       newErrors.userid = "아이디 중복확인을 해주세요.";
     }
 
-    // 비밀번호 검사
     if (!pw) {
       newErrors.password = "비밀번호를 입력하세요.";
     } else if (pw.length < 8) {
@@ -553,21 +495,18 @@ function Signup() {
       newErrors.password = "비밀번호에 특수문자를 포함해주세요.";
     }
 
-    // 비밀번호 확인
     if (!pw2) {
       newErrors.password2 = "비밀번호 확인을 입력하세요.";
     } else if (pw !== pw2) {
       newErrors.password2 = "비밀번호가 일치하지 않습니다.";
     }
 
-    // 이름 검사
     if (!username) {
       newErrors.name = "이름을 입력하세요.";
     } else if (!NAME_REGEX.test(username)) {
       newErrors.name = "이름은 한글 또는 영문만 입력 가능합니다.";
     }
 
-    // 휴대폰 번호 검사
     if (!phone1 || !phone2 || !phone3) {
       newErrors.phone1 = "휴대폰 번호를 입력하세요.";
     } else if (
@@ -578,22 +517,18 @@ function Signup() {
       newErrors.phone1 = "휴대폰 번호를 정확히 입력하세요.";
     }
 
-    // 통신사 검사
     if (!form.telecomProvider) {
       newErrors.telecomProvider = "통신사를 선택하세요.";
     }
 
-    // 성별 검사
     if (!form.gender) {
       newErrors.gender = "성별을 선택하세요.";
     }
 
-    // 생년월일 검사
     if (!form.year || !form.month || !form.day) {
       newErrors.birth = "생년월일을 선택하세요.";
     }
 
-    // 이메일 검사
     if (!form.emailId.trim()) {
       newErrors.emailId = "이메일 아이디를 입력하세요.";
     }
@@ -616,9 +551,6 @@ function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // =========================
-  // [회원가입 제출]
-  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -679,6 +611,9 @@ function Signup() {
       setIsSubmitting(false);
     }
   };
+
+  const isIdError =
+    !!errors.userid || (!idChecked && idMsg === "이미 사용 중인 아이디입니다.");
 
   return (
     <Box
@@ -817,7 +752,7 @@ function Signup() {
                       value={form.userid}
                       onChange={handleChange}
                       placeholder="영문/숫자 8~12자"
-                      error={!!errors.userid || (!!idMsg && !idChecked)}
+                      error={isIdError}
                       helperText={errors.userid || idMsg || " "}
                     />
                     <Button

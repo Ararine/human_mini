@@ -14,6 +14,8 @@ export default function MainHeader({
   onChangeSearch,
   onSearch,
 }) {
+  const userId = sessionStorage.getItem("userId");
+  console.log(userId);
   return (
     <AppBar
       position="static"

@@ -31,21 +31,32 @@ import { useNavigate } from "react-router-dom";
 
 const PASSWORD_REGEX =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const API_BASE_URL = "http://localhost:5000";
 
 export default function MyPage() {
   const navigate = useNavigate();
 
+  // 임시 표시용 기본값
+  // 현재 백엔드에 사용자 조회 GET API가 없어서 화면 최초 진입 시에는
+  // localStorage 값을 우선 사용하고, 없으면 fallback 값을 보여주도록 처리
+  const storedUsername = localStorage.getItem("username") || "";
+  const storedEmail = localStorage.getItem("email") || "";
+  const storedPhone = localStorage.getItem("phone_number") || "";
+  const storedTelecomProvider = localStorage.getItem("telecom_provider") || "";
+
   const userInfo = useMemo(
     () => ({
-      loginId: "minyoung123",
-      name: "김민영",
-      birth: "2000.10.10",
-      gender: "남성",
-      email: "minyoung123@naver.com",
-      phone: "010-1234-5678",
-      telecomProvider: "SKT",
+      loginId: storedUsername || "로그인 사용자",
+      name: localStorage.getItem("name") || "사용자",
+      birth: localStorage.getItem("birth") || "-",
+      gender: localStorage.getItem("gender") || "-",
+      email: storedEmail || "",
+      phone: storedPhone || "010-0000-0000",
+      telecomProvider: storedTelecomProvider || "",
     }),
-    [],
+    [storedUsername, storedEmail, storedPhone, storedTelecomProvider],
   );
 
   const recentSearches = useMemo(
@@ -124,16 +135,20 @@ export default function MyPage() {
     [],
   );
 
+  const phoneParts = (userInfo.phone || "010-0000-0000").split("-");
+
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [editForm, setEditForm] = useState({
     email: userInfo.email,
     currentPassword: "",
     password: "",
     passwordConfirm: "",
-    phone1: userInfo.phone.split("-")[0] || "010",
-    phone2: userInfo.phone.split("-")[1] || "",
-    phone3: userInfo.phone.split("-")[2] || "",
+    phone1: phoneParts[0] || "010",
+    phone2: phoneParts[1] || "",
+    phone3: phoneParts[2] || "",
     telecomProvider: userInfo.telecomProvider || "",
   });
 
@@ -150,47 +165,22 @@ export default function MyPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-  const handleChangeEditForm = (e) => {
-    const { name, value } = e.target;
-
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      [name]: "",
-    }));
-  };
-
-  const handlePhoneChange = (e) => {
-    const { name, value } = e.target;
-    const onlyNumber = value.replace(/[^0-9]/g, "");
-
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: onlyNumber,
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      phone1: "",
-    }));
-  };
-
-  const handleEditProfile = () => setIsEditMode(true);
-
-  const handleCancelEdit = () => {
+  const resetEditForm = () => {
+    const latestPhone = (
+      localStorage.getItem("phone_number") || userInfo.phone
+    ).split("-");
     setEditForm({
-      email: userInfo.email,
+      email: localStorage.getItem("email") || userInfo.email,
       currentPassword: "",
       password: "",
       passwordConfirm: "",
-      phone1: userInfo.phone.split("-")[0] || "010",
-      phone2: userInfo.phone.split("-")[1] || "",
-      phone3: userInfo.phone.split("-")[2] || "",
-      telecomProvider: userInfo.telecomProvider || "",
+      phone1: latestPhone[0] || "010",
+      phone2: latestPhone[1] || "",
+      phone3: latestPhone[2] || "",
+      telecomProvider:
+        localStorage.getItem("telecom_provider") ||
+        userInfo.telecomProvider ||
+        "",
     });
 
     setErrors({
@@ -205,6 +195,40 @@ export default function MyPage() {
     setShowCurrentPassword(false);
     setShowPassword(false);
     setShowPasswordConfirm(false);
+  };
+
+  const handleChangeEditForm = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+  };
+
+  const handlePhoneChange = (e) => {
+    const { name, value } = e.target;
+    const onlyNumber = value.replace(/[^0-9]/g, "");
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: onlyNumber,
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      phone1: "",
+    }));
+  };
+
+  const handleEditProfile = () => {
+    resetEditForm();
+    setIsEditMode(true);
+  };
+
+  const handleCancelEdit = () => {
+    resetEditForm();
     setIsEditMode(false);
   };
 
@@ -223,22 +247,26 @@ export default function MyPage() {
     if (!editForm.email.trim()) {
       newErrors.email = "이메일을 입력해주세요.";
       isValid = false;
+    } else if (!EMAIL_REGEX.test(editForm.email.trim())) {
+      newErrors.email = "올바른 이메일 형식을 입력해주세요.";
+      isValid = false;
     }
 
-    if (
-      editForm.currentPassword ||
-      editForm.password ||
-      editForm.passwordConfirm
-    ) {
-      if (!editForm.currentPassword) {
+    const isPasswordEditing =
+      editForm.currentPassword.trim() ||
+      editForm.password.trim() ||
+      editForm.passwordConfirm.trim();
+
+    if (isPasswordEditing) {
+      if (!editForm.currentPassword.trim()) {
         newErrors.currentPassword = "기존 비밀번호를 입력해주세요.";
         isValid = false;
       }
 
-      if (!editForm.password) {
+      if (!editForm.password.trim()) {
         newErrors.password = "새 비밀번호를 입력해주세요.";
         isValid = false;
-      } else if (!PASSWORD_REGEX.test(editForm.password)) {
+      } else if (!PASSWORD_REGEX.test(editForm.password.trim())) {
         newErrors.password =
           "비밀번호는 8자 이상이며 영문, 숫자, 특수문자를 포함해야 합니다.";
         isValid = false;
@@ -247,7 +275,7 @@ export default function MyPage() {
         isValid = false;
       }
 
-      if (!editForm.passwordConfirm) {
+      if (!editForm.passwordConfirm.trim()) {
         newErrors.passwordConfirm = "비밀번호 확인을 입력해주세요.";
         isValid = false;
       } else if (editForm.password !== editForm.passwordConfirm) {
@@ -281,23 +309,57 @@ export default function MyPage() {
     return isValid;
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!validateEditForm()) return;
 
-    const payload = {
-      email: editForm.email,
-      phone: `${editForm.phone1}-${editForm.phone2}-${editForm.phone3}`,
-      telecomProvider: editForm.telecomProvider,
-    };
-
-    if (editForm.password) {
-      payload.currentPassword = editForm.currentPassword;
-      payload.newPassword = editForm.password;
+    const username = localStorage.getItem("username");
+    if (!username) {
+      alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
+      navigate("/login");
+      return;
     }
 
-    console.log("저장 payload:", payload);
-    alert("프로필 수정 저장 기능 연결 예정");
-    setIsEditMode(false);
+    const payload = {
+      email: editForm.email.trim(),
+      phone_number: `${editForm.phone1}-${editForm.phone2}-${editForm.phone3}`,
+    };
+
+    if (editForm.password.trim()) {
+      payload.password = editForm.password.trim();
+    }
+
+    try {
+      setIsSaving(true);
+
+      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "회원 정보 수정에 실패했습니다.");
+      }
+
+      localStorage.setItem("email", payload.email);
+      localStorage.setItem("phone_number", payload.phone_number);
+      localStorage.setItem("telecom_provider", editForm.telecomProvider);
+
+      alert("회원 정보가 수정되었습니다.");
+      setIsEditMode(false);
+      resetEditForm();
+
+      window.location.reload();
+    } catch (error) {
+      alert(error.message || "수정 중 오류가 발생했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRecentClick = (place) => {
@@ -309,714 +371,523 @@ export default function MyPage() {
   };
 
   const handleLogout = () => {
-    alert("로그아웃 기능 연결 예정");
+    localStorage.removeItem("username");
+    localStorage.removeItem("email");
+    localStorage.removeItem("phone_number");
+    localStorage.removeItem("telecom_provider");
+    localStorage.removeItem("name");
+    localStorage.removeItem("birth");
+    localStorage.removeItem("gender");
+
+    alert("로그아웃 되었습니다.");
+    navigate("/login");
   };
 
-  const handleWithdraw = () => {
-    alert("회원탈퇴 기능 연결 예정");
+  const handleWithdraw = async () => {
+    const username = localStorage.getItem("username");
+
+    if (!username) {
+      alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
+      navigate("/login");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "정말 회원탈퇴 하시겠습니까?\n탈퇴 후 계정 정보는 복구할 수 없습니다.",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsDeleting(true);
+
+      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "회원탈퇴에 실패했습니다.");
+      }
+
+      localStorage.removeItem("username");
+      localStorage.removeItem("email");
+      localStorage.removeItem("phone_number");
+      localStorage.removeItem("telecom_provider");
+      localStorage.removeItem("name");
+      localStorage.removeItem("birth");
+      localStorage.removeItem("gender");
+
+      alert("회원탈퇴가 완료되었습니다.");
+      navigate("/login");
+    } catch (error) {
+      alert(error.message || "회원탈퇴 중 오류가 발생했습니다.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        bgcolor: "#F6FAF6",
+        bgcolor: "#f7faf7",
+        px: { xs: 2, md: 4 },
+        py: { xs: 3, md: 5 },
       }}
     >
-      <Box
-        sx={{
-          maxWidth: "1360px",
-          mx: "auto",
-          px: { xs: 2, md: 3 },
-          py: { xs: 2, md: 2.5 },
-          height: "100vh",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 3 }}
       >
-        <Stack
-          spacing={2}
+        <Box
+          onClick={() => navigate("/")}
           sx={{
-            height: "100%",
-            minHeight: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.6,
+            fontWeight: 800,
+            letterSpacing: 0.3,
+            color: "#1f2a1f",
+            cursor: "pointer",
+            fontSize: { xs: 18, md: 20 },
+            lineHeight: 1.2,
+            flexShrink: 0,
           }}
         >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 2,
-              flexShrink: 0,
-              pb: 1.2,
-              borderBottom: "1px solid #E6EEE6",
-            }}
-          >
-            <Typography
-              onClick={() => navigate("/")}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.6,
-                fontWeight: 800,
-                letterSpacing: 0.3,
-                color: "#1f2a1f",
-                cursor: "pointer",
-                fontSize: { xs: 18, md: 20 },
-                lineHeight: 1.2,
-                flexShrink: 0,
-              }}
-            >
-              🍃 NEARGARDEN
-            </Typography>
+          NEARGARDEN
+        </Box>
 
-            <Box sx={{ textAlign: "right" }}>
+        <Chip
+          label="마이페이지"
+          sx={{
+            bgcolor: "#e8f5e9",
+            color: "#2e7d32",
+            fontWeight: 700,
+            borderRadius: 99,
+          }}
+        />
+      </Stack>
+
+      <Stack
+        direction={{ xs: "column", lg: "row" }}
+        spacing={2}
+        alignItems="stretch"
+      >
+        <CustomCard
+          sx={{
+            flex: 1.2,
+            minWidth: 0,
+          }}
+        >
+          <Stack spacing={2.2}>
+            <Stack spacing={0.5}>
               <Typography
-                sx={{
-                  fontWeight: 800,
-                  color: "#1E2A1F",
-                  fontSize: { xs: 20, md: 22 },
-                  lineHeight: 1.2,
-                }}
+                fontSize={{ xs: 22, md: 28 }}
+                fontWeight={800}
+                color="#1f2a1f"
               >
-                마이페이지
+                내 계정 정보
               </Typography>
-
-              <Typography
-                sx={{
-                  fontSize: 12,
-                  color: "text.secondary",
-                  mt: 0.2,
-                }}
-              >
+              <Typography color="text.secondary" fontSize={14}>
                 내 계정 정보와 최근 검색한 공원을 확인할 수 있어요
               </Typography>
-            </Box>
-          </Box>
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", lg: "1.4fr 0.95fr" },
-              gap: 2,
-              alignItems: "stretch",
-              flex: 1,
-              minHeight: 0,
-              overflow: "hidden",
-            }}
-          >
-            <Stack
-              spacing={2}
-              sx={{
-                minHeight: 0,
-                height: "100%",
-              }}
-            >
-              <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-                <CustomCard>
-                  <Stack spacing={1.4}>
-                    <SectionTitle title="로그인 정보" />
-
-                    <Box
-                      sx={{
-                        px: 2,
-                        py: 1.5,
-                        borderRadius: 3,
-                        backgroundColor: "#FCFEFC",
-                        border: "1px solid #E3ECE3",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 2,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <Stack direction="row" spacing={1.3} alignItems="center">
-                        <IconCircle>
-                          <PersonRoundedIcon
-                            sx={{ fontSize: 18, color: "primary.main" }}
-                          />
-                        </IconCircle>
-
-                        <Box>
-                          <Typography
-                            sx={{
-                              fontSize: 12,
-                              color: "text.secondary",
-                              mb: 0.2,
-                            }}
-                          >
-                            로그인 아이디
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontWeight: 700,
-                              color: "text.primary",
-                              fontSize: 15,
-                            }}
-                          >
-                            {userInfo.loginId}
-                          </Typography>
-                        </Box>
-                      </Stack>
-
-                      <Chip
-                        label="활성 계정"
-                        size="small"
-                        sx={{
-                          backgroundColor: "#EAF6EA",
-                          color: "#3F6B46",
-                          fontWeight: 700,
-                          height: 28,
-                          borderRadius: 999,
-                        }}
-                      />
-                    </Box>
-                  </Stack>
-                </CustomCard>
-
-                <CustomCard
-                  sx={{
-                    flex: 1,
-                    minHeight: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                  contentSx={{
-                    p: { xs: 2, md: 2.2 },
-                    display: "flex",
-                    flexDirection: "column",
-                    flex: 1,
-                    minHeight: 0,
-                  }}
-                >
-                  <Stack
-                    spacing={1.4}
-                    sx={{
-                      flex: 1,
-                      minHeight: 0,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 2,
-                        flexWrap: "wrap",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <SectionTitle title="프로필 정보" />
-
-                      {!isEditMode ? (
-                        <Button
-                          variant="contained"
-                          startIcon={<EditRoundedIcon />}
-                          onClick={handleEditProfile}
-                          size="small"
-                          sx={{
-                            borderRadius: 2.5,
-                            px: 1.8,
-                            height: 36,
-                            boxShadow: "none",
-                          }}
-                        >
-                          프로필 수정
-                        </Button>
-                      ) : (
-                        <Stack direction="row" spacing={1}>
-                          <Button
-                            variant="outlined"
-                            startIcon={<CloseRoundedIcon />}
-                            onClick={handleCancelEdit}
-                            size="small"
-                            sx={{
-                              borderRadius: 2.5,
-                              px: 1.6,
-                              height: 36,
-                            }}
-                          >
-                            취소
-                          </Button>
-                          <Button
-                            variant="contained"
-                            startIcon={<SaveRoundedIcon />}
-                            onClick={handleSaveProfile}
-                            size="small"
-                            sx={{
-                              borderRadius: 2.5,
-                              px: 1.6,
-                              height: 36,
-                              boxShadow: "none",
-                            }}
-                          >
-                            저장
-                          </Button>
-                        </Stack>
-                      )}
-                    </Box>
-
-                    <Box
-                      sx={{
-                        borderRadius: 3,
-                        overflow: "auto",
-                        border: "1px solid #E5ECE5",
-                        backgroundColor: "#FFF",
-                        flex: 1,
-                        minHeight: 0,
-                      }}
-                    >
-                      {!isEditMode ? (
-                        <>
-                          <InfoRow label="생년월일" value={userInfo.birth} />
-                          <Divider />
-                          <InfoRow label="성별" value={userInfo.gender} />
-                          <Divider />
-                          <InfoRow label="이름" value={userInfo.name} />
-                          <Divider />
-                          <InfoRow label="이메일" value={userInfo.email} />
-                          <Divider />
-                          <InfoRow label="비밀번호" value="********" />
-                          <Divider />
-                          <InfoRow
-                            label="통신사"
-                            value={userInfo.telecomProvider}
-                          />
-                          <Divider />
-                          <InfoRow label="휴대폰 번호" value={userInfo.phone} />
-                        </>
-                      ) : (
-                        <Box sx={{ px: 2, py: 2 }}>
-                          <Stack spacing={1.2}>
-                            <TextField
-                              label="이메일"
-                              name="email"
-                              value={editForm.email}
-                              onChange={handleChangeEditForm}
-                              error={!!errors.email}
-                              helperText={errors.email}
-                              fullWidth
-                              size="small"
-                            />
-
-                            <TextField
-                              label="기존 비밀번호"
-                              name="currentPassword"
-                              type={showCurrentPassword ? "text" : "password"}
-                              value={editForm.currentPassword}
-                              onChange={handleChangeEditForm}
-                              placeholder="기존 비밀번호 입력"
-                              error={!!errors.currentPassword}
-                              helperText={
-                                errors.currentPassword ||
-                                "비밀번호를 변경하려면 기존 비밀번호를 입력해주세요."
-                              }
-                              fullWidth
-                              size="small"
-                              InputProps={{
-                                endAdornment: (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      onClick={() =>
-                                        setShowCurrentPassword((prev) => !prev)
-                                      }
-                                      edge="end"
-                                    >
-                                      {showCurrentPassword ? (
-                                        <VisibilityOffRoundedIcon />
-                                      ) : (
-                                        <VisibilityRoundedIcon />
-                                      )}
-                                    </IconButton>
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-
-                            <TextField
-                              label="새 비밀번호"
-                              name="password"
-                              type={showPassword ? "text" : "password"}
-                              value={editForm.password}
-                              onChange={handleChangeEditForm}
-                              placeholder="새 비밀번호 입력"
-                              error={!!errors.password}
-                              helperText={
-                                errors.password ||
-                                "8자 이상, 영문 / 숫자 / 특수문자를 포함해주세요."
-                              }
-                              fullWidth
-                              size="small"
-                              InputProps={{
-                                endAdornment: (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      onClick={() =>
-                                        setShowPassword((prev) => !prev)
-                                      }
-                                      edge="end"
-                                    >
-                                      {showPassword ? (
-                                        <VisibilityOffRoundedIcon />
-                                      ) : (
-                                        <VisibilityRoundedIcon />
-                                      )}
-                                    </IconButton>
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-
-                            <TextField
-                              label="새 비밀번호 확인"
-                              name="passwordConfirm"
-                              type={showPasswordConfirm ? "text" : "password"}
-                              value={editForm.passwordConfirm}
-                              onChange={handleChangeEditForm}
-                              placeholder="비밀번호 다시 입력"
-                              error={!!errors.passwordConfirm}
-                              helperText={
-                                errors.passwordConfirm ||
-                                "위에 입력한 새 비밀번호를 한 번 더 입력해주세요."
-                              }
-                              fullWidth
-                              size="small"
-                              InputProps={{
-                                endAdornment: (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      onClick={() =>
-                                        setShowPasswordConfirm((prev) => !prev)
-                                      }
-                                      edge="end"
-                                    >
-                                      {showPasswordConfirm ? (
-                                        <VisibilityOffRoundedIcon />
-                                      ) : (
-                                        <VisibilityRoundedIcon />
-                                      )}
-                                    </IconButton>
-                                  </InputAdornment>
-                                ),
-                              }}
-                            />
-
-                            <Box>
-                              <Typography
-                                sx={{
-                                  mb: 0.75,
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  color: "#243224",
-                                }}
-                              >
-                                휴대폰 번호
-                              </Typography>
-
-                              <Box
-                                sx={{
-                                  display: "grid",
-                                  gridTemplateColumns: {
-                                    xs: "1fr",
-                                    md: "1.2fr 0.8fr",
-                                  },
-                                  gap: 1.2,
-                                  alignItems: "start",
-                                }}
-                              >
-                                <Box>
-                                  <Box
-                                    sx={{
-                                      display: "grid",
-                                      gridTemplateColumns:
-                                        "1fr 12px 1fr 12px 1fr",
-                                      alignItems: "center",
-                                      gap: 0.4,
-                                    }}
-                                  >
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      name="phone1"
-                                      value={editForm.phone1}
-                                      onChange={handlePhoneChange}
-                                      placeholder="010"
-                                      inputProps={{ maxLength: 3 }}
-                                      error={!!errors.phone1}
-                                    />
-                                    <Typography textAlign="center">
-                                      -
-                                    </Typography>
-
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      name="phone2"
-                                      value={editForm.phone2}
-                                      onChange={handlePhoneChange}
-                                      placeholder="1234"
-                                      inputProps={{ maxLength: 4 }}
-                                      error={!!errors.phone1}
-                                    />
-                                    <Typography textAlign="center">
-                                      -
-                                    </Typography>
-
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      name="phone3"
-                                      value={editForm.phone3}
-                                      onChange={handlePhoneChange}
-                                      placeholder="5678"
-                                      inputProps={{ maxLength: 4 }}
-                                      error={!!errors.phone1}
-                                    />
-                                  </Box>
-
-                                  <Typography
-                                    variant="caption"
-                                    color="error"
-                                    sx={{
-                                      display: "block",
-                                      mt: 0.5,
-                                      minHeight: 18,
-                                    }}
-                                  >
-                                    {errors.phone1 || " "}
-                                  </Typography>
-                                </Box>
-
-                                <TextField
-                                  select
-                                  fullWidth
-                                  size="small"
-                                  label="통신사"
-                                  name="telecomProvider"
-                                  value={editForm.telecomProvider}
-                                  onChange={handleChangeEditForm}
-                                  error={!!errors.telecomProvider}
-                                  helperText={errors.telecomProvider}
-                                >
-                                  <MenuItem value="">선택</MenuItem>
-                                  <MenuItem value="SKT">SKT</MenuItem>
-                                  <MenuItem value="KT">KT</MenuItem>
-                                  <MenuItem value="LGU+">LGU+</MenuItem>
-                                  <MenuItem value="알뜰폰">알뜰폰</MenuItem>
-                                </TextField>
-                              </Box>
-                            </Box>
-                          </Stack>
-                        </Box>
-                      )}
-                    </Box>
-                  </Stack>
-                </CustomCard>
-              </Stack>
-
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                sx={{ flexShrink: 0 }}
-              >
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteOutlineRoundedIcon />}
-                  onClick={handleWithdraw}
-                  sx={{
-                    flex: 1,
-                    minHeight: 44,
-                    borderRadius: 3,
-                    fontWeight: 700,
-                  }}
-                >
-                  회원탈퇴
-                </Button>
-
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<LogoutRoundedIcon />}
-                  onClick={handleLogout}
-                  sx={{
-                    flex: 1,
-                    minHeight: 44,
-                    borderRadius: 3,
-                    fontWeight: 700,
-                    boxShadow: "none",
-                  }}
-                >
-                  로그아웃
-                </Button>
-              </Stack>
             </Stack>
 
-            <CustomCard
+            <Box
               sx={{
-                minHeight: 0,
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-              }}
-              contentSx={{
-                p: { xs: 2, md: 2.2 },
-                display: "flex",
-                flexDirection: "column",
-                height: "100%",
-                minHeight: 0,
+                p: 2.2,
+                borderRadius: 4,
+                bgcolor: "#f5faf4",
+                border: "1px solid #e2efe2",
               }}
             >
-              <Stack spacing={1.4} sx={{ flex: 1, minHeight: 0 }}>
-                <Stack
-                  direction="row"
-                  spacing={1.2}
-                  alignItems="center"
-                  sx={{ flexShrink: 0 }}
-                >
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.2}>
                   <IconCircle>
-                    <AccessTimeRoundedIcon
-                      sx={{ color: "primary.main", fontSize: 18 }}
-                    />
+                    <PersonRoundedIcon />
                   </IconCircle>
-
                   <Box>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: 18,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      최근 검색 목록
+                    <Typography fontSize={13} color="text.secondary">
+                      로그인 아이디
                     </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: 12,
-                        color: "text.secondary",
-                        mt: 0.2,
-                      }}
-                    >
-                      최근 검색 8개
+                    <Typography fontSize={18} fontWeight={800}>
+                      {userInfo.loginId}
                     </Typography>
                   </Box>
                 </Stack>
 
-                <Box
-                  sx={{
-                    px: 1.4,
-                    py: 1,
-                    borderRadius: 2.5,
-                    backgroundColor: "#F8FCF8",
-                    border: "1px solid #E3EFE3",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Stack direction="row" spacing={0.8} alignItems="center">
-                    <SearchRoundedIcon
-                      sx={{ fontSize: 16, color: "primary.main" }}
-                    />
-                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                      클릭 시 메인 지도로 이동
-                    </Typography>
+                {!isEditMode ? (
+                  <Button
+                    variant="contained"
+                    startIcon={<EditRoundedIcon />}
+                    onClick={handleEditProfile}
+                    size="small"
+                    sx={{
+                      borderRadius: 2.5,
+                      px: 1.8,
+                      height: 36,
+                      boxShadow: "none",
+                    }}
+                  >
+                    프로필 수정
+                  </Button>
+                ) : (
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<CloseRoundedIcon />}
+                      onClick={handleCancelEdit}
+                      size="small"
+                      sx={{
+                        borderRadius: 2.5,
+                        px: 1.6,
+                        height: 36,
+                      }}
+                    >
+                      취소
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={<SaveRoundedIcon />}
+                      onClick={handleSaveProfile}
+                      disabled={isSaving}
+                      size="small"
+                      sx={{
+                        borderRadius: 2.5,
+                        px: 1.6,
+                        height: 36,
+                        boxShadow: "none",
+                      }}
+                    >
+                      {isSaving ? "저장 중..." : "저장"}
+                    </Button>
                   </Stack>
-                </Box>
+                )}
+              </Stack>
+            </Box>
 
-                <List
-                  disablePadding
-                  sx={{
-                    mt: 0.5,
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: "auto",
-                  }}
-                >
-                  {recentSearches.slice(0, 8).map((item, index) => (
-                    <React.Fragment key={item.id}>
-                      <ListItemButton
-                        onClick={() => handleRecentClick(item)}
-                        sx={{
-                          px: 1.2,
-                          py: 1.1,
-                          borderRadius: 2.5,
-                          alignItems: "center",
-                          minHeight: "auto",
-                          transition: "all 0.2s ease",
-                          "&:hover": {
-                            backgroundColor: "rgba(167, 215, 169, 0.14)",
-                          },
-                        }}
+            {!isEditMode ? (
+              <>
+                <SectionTitle title="기본 정보" />
+                <InfoRow label="이름" value={userInfo.name} />
+                <InfoRow label="생년월일" value={userInfo.birth} />
+                <InfoRow label="성별" value={userInfo.gender} />
+                <InfoRow label="이메일" value={userInfo.email || "-"} />
+                <InfoRow label="휴대폰 번호" value={userInfo.phone || "-"} />
+                <InfoRow
+                  label="통신사"
+                  value={userInfo.telecomProvider || "-"}
+                />
+              </>
+            ) : (
+              <>
+                <SectionTitle title="프로필 수정" />
+
+                <Stack spacing={2}>
+                  <TextField
+                    label="이메일"
+                    name="email"
+                    fullWidth
+                    value={editForm.email}
+                    onChange={handleChangeEditForm}
+                    error={Boolean(errors.email)}
+                    helperText={errors.email || " "}
+                  />
+
+                  <TextField
+                    label="기존 비밀번호"
+                    name="currentPassword"
+                    type={showCurrentPassword ? "text" : "password"}
+                    fullWidth
+                    value={editForm.currentPassword}
+                    onChange={handleChangeEditForm}
+                    error={Boolean(errors.currentPassword)}
+                    helperText={
+                      errors.currentPassword ||
+                      "비밀번호를 변경할 때만 입력해주세요."
+                    }
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() =>
+                              setShowCurrentPassword((prev) => !prev)
+                            }
+                            edge="end"
+                          >
+                            {showCurrentPassword ? (
+                              <VisibilityOffRoundedIcon />
+                            ) : (
+                              <VisibilityRoundedIcon />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    label="새 비밀번호"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    fullWidth
+                    value={editForm.password}
+                    onChange={handleChangeEditForm}
+                    error={Boolean(errors.password)}
+                    helperText={
+                      errors.password ||
+                      "8자 이상, 영문/숫자/특수문자를 포함해주세요."
+                    }
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            edge="end"
+                          >
+                            {showPassword ? (
+                              <VisibilityOffRoundedIcon />
+                            ) : (
+                              <VisibilityRoundedIcon />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    label="새 비밀번호 확인"
+                    name="passwordConfirm"
+                    type={showPasswordConfirm ? "text" : "password"}
+                    fullWidth
+                    value={editForm.passwordConfirm}
+                    onChange={handleChangeEditForm}
+                    error={Boolean(errors.passwordConfirm)}
+                    helperText={errors.passwordConfirm || " "}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() =>
+                              setShowPasswordConfirm((prev) => !prev)
+                            }
+                            edge="end"
+                          >
+                            {showPasswordConfirm ? (
+                              <VisibilityOffRoundedIcon />
+                            ) : (
+                              <VisibilityRoundedIcon />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <Box>
+                    <Typography fontSize={14} fontWeight={700} sx={{ mb: 0.9 }}>
+                      휴대폰 번호
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <TextField
+                        name="phone1"
+                        value={editForm.phone1}
+                        onChange={handlePhoneChange}
+                        inputProps={{ maxLength: 3 }}
+                        sx={{ width: 110 }}
+                      />
+                      <Typography>-</Typography>
+                      <TextField
+                        name="phone2"
+                        value={editForm.phone2}
+                        onChange={handlePhoneChange}
+                        inputProps={{ maxLength: 4 }}
+                        sx={{ width: 120 }}
+                      />
+                      <Typography>-</Typography>
+                      <TextField
+                        name="phone3"
+                        value={editForm.phone3}
+                        onChange={handlePhoneChange}
+                        inputProps={{ maxLength: 4 }}
+                        sx={{ width: 120 }}
+                      />
+                    </Stack>
+                    <Typography
+                      fontSize={12}
+                      color={errors.phone1 ? "error.main" : "transparent"}
+                      sx={{ mt: 0.8, minHeight: 18 }}
+                    >
+                      {errors.phone1 || " "}
+                    </Typography>
+                  </Box>
+
+                  <TextField
+                    select
+                    label="통신사"
+                    name="telecomProvider"
+                    fullWidth
+                    value={editForm.telecomProvider}
+                    onChange={handleChangeEditForm}
+                    error={Boolean(errors.telecomProvider)}
+                    helperText={
+                      errors.telecomProvider ||
+                      "현재는 화면 표시 및 validation 용으로만 사용됩니다."
+                    }
+                  >
+                    <MenuItem value="">선택</MenuItem>
+                    <MenuItem value="SKT">SKT</MenuItem>
+                    <MenuItem value="KT">KT</MenuItem>
+                    <MenuItem value="LGU+">LGU+</MenuItem>
+                    <MenuItem value="알뜰폰">알뜰폰</MenuItem>
+                  </TextField>
+                </Stack>
+              </>
+            )}
+
+            <Divider />
+
+            <Stack direction="row" spacing={1.2}>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlineRoundedIcon />}
+                onClick={handleWithdraw}
+                disabled={isDeleting}
+                sx={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 3,
+                  fontWeight: 700,
+                }}
+              >
+                {isDeleting ? "처리 중..." : "회원탈퇴"}
+              </Button>
+
+              <Button
+                variant="contained"
+                startIcon={<LogoutRoundedIcon />}
+                onClick={handleLogout}
+                sx={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 3,
+                  fontWeight: 700,
+                  boxShadow: "none",
+                }}
+              >
+                로그아웃
+              </Button>
+            </Stack>
+          </Stack>
+        </CustomCard>
+
+        <CustomCard
+          sx={{
+            flex: 0.92,
+            minWidth: 0,
+          }}
+        >
+          <Stack spacing={2}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <SectionTitle title="최근 검색 목록" />
+              <Chip
+                icon={<SearchRoundedIcon />}
+                label="최근 검색 8개"
+                size="small"
+                sx={{
+                  bgcolor: "#eef7ee",
+                  color: "#2e7d32",
+                  fontWeight: 700,
+                }}
+              />
+            </Stack>
+
+            <Typography color="text.secondary" fontSize={13}>
+              클릭 시 메인 지도로 이동
+            </Typography>
+
+            <List disablePadding sx={{ p: 0 }}>
+              {recentSearches.slice(0, 8).map((item, index) => (
+                <Box key={item.id}>
+                  <ListItemButton
+                    onClick={() => handleRecentClick(item)}
+                    sx={{
+                      px: 1.2,
+                      py: 1.1,
+                      borderRadius: 2.5,
+                      alignItems: "center",
+                      minHeight: "auto",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        backgroundColor: "rgba(167, 215, 169, 0.14)",
+                      },
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      width="100%"
+                      spacing={1.5}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={1.2}
+                        alignItems="center"
+                        minWidth={0}
                       >
-                        <Box
-                          sx={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: "50%",
-                            backgroundColor: "#EDF6EE",
-                            color: "#4A6B4E",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 800,
-                            fontSize: 11,
-                            mr: 1.2,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {index + 1}
-                        </Box>
-
+                        <IconCircle>
+                          <AccessTimeRoundedIcon fontSize="small" />
+                        </IconCircle>
                         <ListItemText
                           primary={
-                            <Typography
-                              sx={{
-                                fontWeight: 700,
-                                fontSize: 14,
-                                color: "text.primary",
-                                lineHeight: 1.2,
-                              }}
-                            >
-                              {item.name}
+                            <Typography fontWeight={700} fontSize={14.5} noWrap>
+                              {index + 1}. {item.name}
                             </Typography>
                           }
                           secondary={
                             <Typography
-                              sx={{
-                                fontSize: 11.5,
-                                color: "text.secondary",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                mt: 0.35,
-                              }}
+                              color="text.secondary"
+                              fontSize={12.5}
+                              noWrap
                             >
                               {item.address}
                             </Typography>
                           }
                         />
+                      </Stack>
 
-                        <ChevronRightRoundedIcon
-                          sx={{
-                            color: "#A3AEA4",
-                            fontSize: 18,
-                            ml: 0.5,
-                          }}
-                        />
-                      </ListItemButton>
+                      <ChevronRightRoundedIcon
+                        sx={{ color: "text.secondary" }}
+                      />
+                    </Stack>
+                  </ListItemButton>
 
-                      {index !== recentSearches.slice(0, 8).length - 1 && (
-                        <Divider sx={{ my: 0.25 }} />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </List>
-              </Stack>
-            </CustomCard>
-          </Box>
-        </Stack>
-      </Box>
+                  {index !== recentSearches.slice(0, 8).length - 1 && (
+                    <Divider sx={{ my: 0.4 }} />
+                  )}
+                </Box>
+              ))}
+            </List>
+          </Stack>
+        </CustomCard>
+      </Stack>
     </Box>
   );
 }
@@ -1025,15 +896,16 @@ function CustomCard({ children, sx = {}, contentSx = {} }) {
   return (
     <Card
       sx={{
-        borderRadius: 4,
-        border: "1px solid #E7EEE7",
-        boxShadow: "0 6px 20px rgba(31, 42, 31, 0.04)",
+        borderRadius: 5,
+        border: "1px solid #ebf1eb",
+        boxShadow: "0 10px 30px rgba(31, 42, 31, 0.06)",
         ...sx,
       }}
     >
       <CardContent
         sx={{
-          p: { xs: 2, md: 2.2 },
+          p: { xs: 2, md: 2.5 },
+          "&:last-child": { pb: { xs: 2, md: 2.5 } },
           ...contentSx,
         }}
       >
@@ -1045,15 +917,7 @@ function CustomCard({ children, sx = {}, contentSx = {} }) {
 
 function SectionTitle({ title }) {
   return (
-    <Typography
-      variant="h6"
-      sx={{
-        fontWeight: 700,
-        fontSize: 18,
-        color: "#1E2A1F",
-        lineHeight: 1.2,
-      }}
-    >
+    <Typography fontSize={18} fontWeight={800} color="#1f2a1f">
       {title}
     </Typography>
   );
@@ -1063,13 +927,14 @@ function IconCircle({ children }) {
   return (
     <Box
       sx={{
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         borderRadius: "50%",
+        bgcolor: "#e8f5e9",
+        color: "#2e7d32",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#EDF6EE",
         flexShrink: 0,
       }}
     >
@@ -1082,32 +947,18 @@ function InfoRow({ label, value }) {
   return (
     <Box
       sx={{
-        px: 2,
-        py: 1.35,
-        display: "grid",
-        gridTemplateColumns: "120px 1fr",
+        display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
         gap: 2,
+        py: 1.2,
+        borderBottom: "1px solid #f1f4f1",
       }}
     >
-      <Typography
-        sx={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: "#243224",
-        }}
-      >
+      <Typography fontSize={14} color="text.secondary">
         {label}
       </Typography>
-
-      <Typography
-        sx={{
-          fontSize: 14,
-          color: "text.secondary",
-          textAlign: "right",
-          wordBreak: "break-all",
-        }}
-      >
+      <Typography fontSize={15} fontWeight={700} textAlign="right">
         {value}
       </Typography>
     </Box>
