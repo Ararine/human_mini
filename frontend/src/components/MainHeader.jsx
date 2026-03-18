@@ -7,15 +7,18 @@ import {
   Button,
   TextField,
 } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function MainHeader({
   searchKeyword = "",
   onChangeSearch,
   onSearch,
 }) {
-  const userId = sessionStorage.getItem("userId");
-  console.log(userId);
+  const navigate = useNavigate();
+
+  const loginUser = sessionStorage.getItem("loginUser");
+  const isLogin = !!loginUser; // ✅ 로그인 여부 판단
+
   return (
     <AppBar
       position="static"
@@ -126,7 +129,7 @@ export default function MainHeader({
           </Box>
         </Box>
 
-        {/* 로그인 영역 */}
+        {/* 로그인 / 마이페이지 영역 */}
         <Box
           sx={{
             minWidth: 180,
@@ -136,8 +139,13 @@ export default function MainHeader({
         >
           <Button
             variant="outlined"
-            component={Link}
-            to="/login"
+            onClick={() => {
+              if (isLogin) {
+                navigate("/mypage"); // ✅ 로그인 상태 → 마이페이지
+              } else {
+                navigate("/login"); // ❌ 비로그인 → 로그인
+              }
+            }}
             sx={{
               borderRadius: 2,
               px: 2.5,
@@ -146,7 +154,7 @@ export default function MainHeader({
               whiteSpace: "nowrap",
             }}
           >
-            로그인
+            {isLogin ? "마이페이지" : "로그인"}
           </Button>
         </Box>
       </Toolbar>

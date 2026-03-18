@@ -88,6 +88,7 @@ export default function Login() {
         };
 
         sessionStorage.setItem("loginUser", JSON.stringify(loginUser));
+
         alert(data.message || "로그인 성공!");
         navigate("/");
       } else {
@@ -184,7 +185,7 @@ export default function Login() {
                     boxShadow: "none",
                   }}
                 >
-                  로그인
+                  {isSubmitting ? "로그인 중..." : "로그인"}
                 </Button>
               </Stack>
             </Box>
