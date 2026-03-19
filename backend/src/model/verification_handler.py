@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from src.table.verification import VerificationCode
+from table.verification import VerificationCode
 
 # [CREATE] 1. 인증 코드 최초 저장
 def insert_verification_code(db: Session, email: str, code: str) -> bool:
