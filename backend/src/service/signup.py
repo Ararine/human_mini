@@ -23,23 +23,24 @@ async def register_user(
     
     db = SessionLocal()
     try:
-        create_user(
-            db=db,
-            username=username,
-            hashed_password=hashed_str,
-            full_name=full_name,
-            email=email,
-            birth_date=birth_date,
-            gender=gender,
-            social_provider=social_provider,
-            social_id=social_id,
-            phone_number=phone_number,
-            telecom_provider=telecom_provider
-        )   
-    except Exception as e:
-        print(e)
-    finally :
+        result =  create_user(
+            db = db,
+            username = username,
+            hashed_password = hashed_str,
+            full_name = full_name,
+            email = email,
+            birth_date = birth_date,
+            gender = gender,
+            social_provider = social_provider,             
+            social_id = social_id,
+            phone_number = phone_number,
+            telecom_provider = telecom_provider,
+        )
+        if not result:                        
+            raise Exception("회원가입 실패") 
+    finally:
         db.close()
+
         
  
 # 아이디 중복 체크 

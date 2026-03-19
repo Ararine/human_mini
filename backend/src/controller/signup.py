@@ -3,8 +3,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from service.signup import register_user, check_duplicate_username
-from util.database import engine  # DB 연결 
-from schema.signup import SignupRequest
+from schema.signup import SignupRequest, EmailCodeRequest, EmailVerifyRequest 
+import service.email_service as email_service 
+from util.database import engine 
 
 router = APIRouter()
 
@@ -12,13 +13,19 @@ router = APIRouter()
 # 회원가입 API
 @router.post("/register")
 async def register(data: SignupRequest):  
-    try:
+    try:        
         await register_user(
-            data.username, data.password, data.full_name,
-            data.email, data.gender, data.telecom_provider,
-            data.social_provider, data.social_id, 
-            data.birth_date, data.phone_number
-        )
+            username = data.username,
+            password = data.password,
+            full_name = data.full_name,
+            email = data.email,
+            gender = data.gender,
+            telecom_provider = data.telecom_provider,  
+            social_provider = data.social_provider,
+            social_id = data.social_id,
+            birth_date = data.birth_date,
+            phone_number = data.phone_number
+        ) 
         return JSONResponse(status_code=status.HTTP_201_CREATED, 
                             content={"message": "회원가입 완료"})
     except Exception as e:
@@ -26,11 +33,10 @@ async def register(data: SignupRequest):
                             content={"error": str(e)})
         
 
-# 회원 가입 시 아이디 중복 확인 API (controller의 signup.py)
+# 회원 가입 시 아이디 중복 확인 API 
 @router.get("/check-username/{username}")
 async def check_username(username:str): 
     try:
-        # 클라이언트에서 받은 username을 디비와 비교하여 동일한 값이 있으면 리턴
         is_duplicate = check_duplicate_username(username)
         if is_duplicate:
             return JSONResponse(
@@ -47,4 +53,40 @@ async def check_username(username:str):
             content = {"error":str(e)}
         )
                
-        
+# 이메일 인증 코드 발송 API
+@router.post("/send-email-code") 
+async def send_email_code(data: EmailCodeRequest):     
+    try:
+        await email_service.send_verification_code(data.email)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": "인증코드가 발송되었습니다."}
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": str(e)}
+        )
+
+# 입력된 이메일 인증 코드 유효한지 확인 API
+@router.post("/verify-email-code")
+async def verify_email_code(data: EmailVerifyRequest):
+    try:
+        is_valid = email_service.verify_code(data.email, data.code)
+        if is_valid:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"isValid": True, "message": "인증 완료"}
+            )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"isValid": False, 
+                     "message": "인증코드가 올바르지 않거나 만료되었습니다."}
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": str(e)}
+        )
+
+   

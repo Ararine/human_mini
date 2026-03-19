@@ -14,3 +14,9 @@ class SignupRequest(BaseModel):
     social_provider: str = "local"       # "local"  기본값
     social_id: Optional[str] = None      # NULL 허용
 
+class EmailCodeRequest(BaseModel):
+    email : EmailStr 
+    
+class EmailVerifyRequest(BaseModel):
+    email: EmailStr
+    code: str    
