@@ -10,14 +10,14 @@ def history_to_dict(row):
     # {컬렴명 : 속성값}
     return {column.name: getattr(row, column.name) for column in row.__table__.columns}
 
-def insert_search_query(db: Session, user_id: int, query: str) -> bool:
+def insert_search_query(db: Session, user_name: str, query: str) -> bool:
     """
     특정 유저의 검색 기록을 생성
-    [SQL]: INSERT INTO search_histories (user_id, search_query, created_at) VALUES (...)
+    [SQL]: INSERT INTO search_histories (user_name, search_query, created_at) VALUES (...)
     """
     try:
         db_history = SearchHistory(
-            user_id=user_id,
+            user_name=user_name,
             search_query=query
         )
         db.add(db_history)
@@ -29,17 +29,17 @@ def insert_search_query(db: Session, user_id: int, query: str) -> bool:
         return False
 
 # [READ] 특정 유저의 '삭제되지 않은' 검색 기록 전체 조회
-def get_user_search_histories(db: Session, user_id: int) -> list[dict]:
+def get_user_search_histories(db: Session, user_name: str) -> list[dict]:
     """
     특정 유저(PK)의 기록 중 del_yn이 'N'인 것만 최신순으로 가져오기
     [실행되는 SQL]
     SELECT * FROM search_histories 
-    WHERE user_id = :user_id AND del_yn = 'N' 
+    WHERE user_name = :user_name AND del_yn = 'N' 
     ORDER BY created_at DESC;
     """
     try:
         histories = db.query(SearchHistory).filter(
-            SearchHistory.user_id == user_id,
+            SearchHistory.user_name == user_name,
             SearchHistory.del_yn == "N"
         ).order_by(SearchHistory.created_at.desc()).all()
         
@@ -73,17 +73,17 @@ def soft_delete_history(db: Session, history_id: int) -> bool:
         return False
 
 # [DELETE] 특정 유저의 히스토리 전체 '소프트 삭제' (일괄 처리)
-def soft_delete_all_user_history(db: Session, user_id: int) -> bool:
+def soft_delete_all_user_history(db: Session, user_name: str) -> bool:
     """
     설명: 유저가 '검색 기록 전체 삭제' 버튼을 눌렀을 때 사용
     [실행되는 SQL]
     UPDATE search_histories 
     SET del_yn = 'Y', deleted_at = NOW() 
-    WHERE user_id = :user_id AND del_yn = 'N';
+    WHERE user_name = :user_name AND del_yn = 'N';
     """
     try:
         db.query(SearchHistory).filter(
-            SearchHistory.user_id == user_id,
+            SearchHistory.user_name == user_name,
             SearchHistory.del_yn == "N"
         ).update({
             "del_yn": "Y",

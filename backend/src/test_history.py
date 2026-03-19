@@ -41,7 +41,7 @@ def run_interactive_history_test():
             if choice == '1':
                 q_text = input("검색어를 입력하세요 (기본: '서울대공원'): ") or "서울대공원"
                 # [CREATE] 이제 성공 여부(bool)만 반환함
-                success = insert_search_query(db, user_id=user['id'], query=q_text)
+                success = insert_search_query(db, user_name=user['username'], query=q_text)
                 if success:
                     print(f"🔹 [성공] 검색 기록 '{q_text}' 생성 완료!")
                 else:
@@ -50,7 +50,7 @@ def run_interactive_history_test():
             elif choice == '2':
                 print(f"\n[조회] '{user['full_name']}'님의 유효 기록들:")
                 # [READ] 이제 list[dict]를 반환함
-                history_list = get_user_search_histories(db, user_id=user['id'])
+                history_list = get_user_search_histories(db, user_name=user['username'])
                 if not history_list:
                     print("⚠️ 현재 표시할 검색 기록이 없습니다.")
                 else:
@@ -72,7 +72,7 @@ def run_interactive_history_test():
                 # 전체 현황 확인을 위한 직접 쿼리는 유지하되, 출력을 위해 딕셔너리 변환 없이 사용 가능
                 # (테스트 목적상 DB 상태를 직접 보는 로직)
                 from table import SearchHistory
-                all_h = db.query(SearchHistory).filter(SearchHistory.user_id == user['id']).all()
+                all_h = db.query(SearchHistory).filter(SearchHistory.user_name == user['username']).all()
                 print(f"\n📊 [통계] 전체 데이터 개수: {len(all_h)}개")
                 for h in all_h:
                     status = "삭제됨(Y)" if h.del_yn == 'Y' else "유효(N)"
@@ -82,7 +82,7 @@ def run_interactive_history_test():
                 confirm = input(f"⚠️ 정말로 '{user['full_name']}'님의 모든 기록을 삭제하시겠습니까? (y/n): ")
                 if confirm.lower() == 'y':
                     # [UPDATE/DELETE] 성공 여부(bool) 반환
-                    success = soft_delete_all_user_history(db, user_id=user['id'])
+                    success = soft_delete_all_user_history(db, user_name=user['username'])
                     if success:
                         print(f"✅ [성공] 모든 검색 기록이 소프트 삭제되었습니다.")
                     else:
