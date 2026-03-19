@@ -5,9 +5,7 @@ import {
   Card,
   CardContent,
   Divider,
-  FormControl,
   FormControlLabel,
-  FormLabel,
   IconButton,
   InputAdornment,
   MenuItem,
@@ -20,30 +18,14 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
 
-// =========================
-// [임시 테스트용 데이터]
-// 현재 백엔드 API가 완전히 연결되기 전까지
-// 프론트에서 중복 여부를 흉내내기 위한 임시 배열
-// 추후 실제 DB/API 연결 시 제거 가능
-// =========================
 const EXISTING_EMAILS = ["test@gmail.com", "admin@naver.com", "user@daum.net"];
 
-// =========================
-// [유효성 검사 정규식]
-// =========================
 const NAME_REGEX = /^[가-힣a-zA-Z]+$/;
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const CODE_REGEX = /^\d{6}$/;
 
-// =========================
-// [이메일 인증코드 만료 시간]
-// 300초 = 5분
-// =========================
 const EMAIL_EXPIRE_TIME = 300;
 
-// =========================
-// [초기 폼 상태]
-// =========================
 const INITIAL_FORM = {
   userid: "",
   password: "",
@@ -85,6 +67,7 @@ function Signup() {
   const [emailCodeMsg, setEmailCodeMsg] = useState("");
 
   const [domainReadOnly, setDomainReadOnly] = useState(false);
+  const [selectedDomainOption, setSelectedDomainOption] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,8 +75,6 @@ function Signup() {
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [showResendButton, setShowResendButton] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-
-  const [sentEmailCode, setSentEmailCode] = useState("");
   const [codeExpireAt, setCodeExpireAt] = useState(null);
 
   const email = `${form.emailId.trim()}@${form.emailDomain.trim()}`;
@@ -129,7 +110,6 @@ function Signup() {
     setEmailCodeSent(false);
     setShowResendButton(false);
     setTimeLeft(0);
-    setSentEmailCode("");
     setCodeExpireAt(null);
     updateForm("emailCode", "");
   };
@@ -172,6 +152,8 @@ function Signup() {
   const handleDomainSelect = (e) => {
     const selectedDomain = e.target.value;
 
+    setSelectedDomainOption(selectedDomain);
+
     if (selectedDomain) {
       updateForm("emailDomain", selectedDomain);
       setDomainReadOnly(true);
@@ -183,10 +165,6 @@ function Signup() {
     resetEmailVerificationAll();
     clearFieldError("emailId");
     clearFieldError("emailDomain");
-  };
-
-  const generateSixDigitCode = () => {
-    return String(Math.floor(100000 + Math.random() * 900000));
   };
 
   const formatTime = (seconds) => {
@@ -218,12 +196,6 @@ function Signup() {
     return () => clearInterval(timer);
   }, [emailCodeSent, codeExpireAt]);
 
-  // =========================
-  // [아이디 중복확인]
-  // 핵심 수정:
-  // 1. 확인 시작 시 userid 에러/메시지 초기화
-  // 2. 성공/실패 후 userid 에러를 비워서 idMsg가 보이도록 처리
-  // =========================
   const checkDuplicateId = async () => {
     const userid = form.userid.trim();
 
@@ -269,11 +241,6 @@ function Signup() {
       );
       const data = await response.json();
 
-      setErrors((prev) => ({
-        ...prev,
-        userid: "",
-      }));
-
       if (data.isDuplicate) {
         setIdMsg("이미 사용 중인 아이디입니다.");
         setIdChecked(false);
@@ -283,10 +250,6 @@ function Signup() {
       }
     } catch (err) {
       console.error("아이디 중복확인 오류:", err);
-      setErrors((prev) => ({
-        ...prev,
-        userid: "",
-      }));
       setIdMsg("서버 오류가 발생했습니다.");
       setIdChecked(false);
     }
@@ -334,10 +297,8 @@ function Signup() {
     }
 
     try {
-      const code = generateSixDigitCode();
       const expireAt = Date.now() + EMAIL_EXPIRE_TIME * 1000;
 
-      setSentEmailCode(code);
       setCodeExpireAt(expireAt);
       setTimeLeft(EMAIL_EXPIRE_TIME);
       setEmailCodeSent(true);
@@ -349,9 +310,6 @@ function Signup() {
       setEmailMsg("인증코드가 이메일로 전송되었습니다.");
       setEmailCodeMsg("");
 
-      console.log("임시 이메일 인증코드:", code);
-
-      /*
       const response = await fetch("http://localhost:5000/send-email-code", {
         method: "POST",
         headers: {
@@ -363,21 +321,14 @@ function Signup() {
       const data = await response.json();
 
       if (response.ok) {
-        setTimeLeft(EMAIL_EXPIRE_TIME);
-        setEmailCodeSent(true);
-        setShowResendButton(false);
-        setEmailChecked(true);
-        setEmailVerified(false);
-        updateForm("emailCode", "");
-        clearFieldError("emailCode");
         setEmailMsg(data.message || "인증코드가 이메일로 전송되었습니다.");
-        setEmailCodeMsg("");
       } else {
         setEmailChecked(false);
         setEmailVerified(false);
-        setEmailMsg(data.message || data.error || "인증코드 전송에 실패했습니다.");
+        setEmailMsg(
+          data.message || data.error || "인증코드 전송에 실패했습니다.",
+        );
       }
-      */
     } catch (error) {
       console.error("이메일 인증코드 전송 오류:", error);
       setEmailChecked(false);
@@ -412,18 +363,6 @@ function Signup() {
     }
 
     try {
-      if (form.emailCode.trim() === sentEmailCode) {
-        setEmailVerified(true);
-        setEmailCodeSent(false);
-        setShowResendButton(false);
-        setEmailMsg("이메일 인증이 완료되었습니다.");
-        setEmailCodeMsg("이메일 인증이 완료되었습니다.");
-      } else {
-        setEmailVerified(false);
-        setEmailCodeMsg("인증코드가 일치하지 않습니다.");
-      }
-
-      /*
       const response = await fetch("http://localhost:5000/verify-email-code", {
         method: "POST",
         headers: {
@@ -447,7 +386,6 @@ function Signup() {
         setEmailVerified(false);
         setEmailCodeMsg(data.message || data.error || "인증에 실패했습니다.");
       }
-      */
     } catch (error) {
       console.error("이메일 인증 확인 오류:", error);
       setEmailVerified(false);
@@ -595,10 +533,10 @@ function Signup() {
         setEmailMsg("");
         setEmailCodeMsg("");
         setDomainReadOnly(false);
+        setSelectedDomainOption("");
         setEmailCodeSent(false);
         setShowResendButton(false);
         setTimeLeft(0);
-        setSentEmailCode("");
         setCodeExpireAt(null);
         navigate("/login");
       } else {
@@ -632,7 +570,7 @@ function Signup() {
         elevation={0}
         sx={{
           width: "100%",
-          maxWidth: 1100,
+          maxWidth: 1180,
           height: "calc(100vh - 24px)",
           borderRadius: 4,
           border: "1px solid",
@@ -644,7 +582,7 @@ function Signup() {
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "280px 1fr" },
+            gridTemplateColumns: { xs: "1fr", md: "220px minmax(0, 1fr)" },
             height: "100%",
           }}
         >
@@ -653,7 +591,7 @@ function Signup() {
               background: "linear-gradient(180deg, #edf7ee 0%, #f8fbf8 100%)",
               borderRight: { xs: "none", md: "1px solid #e6ebe6" },
               borderBottom: { xs: "1px solid #e6ebe6", md: "none" },
-              p: { xs: 2.5, md: 4 },
+              p: { xs: 2, md: 3 },
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
@@ -662,13 +600,13 @@ function Signup() {
             <Typography
               component={Link}
               to="/"
-              variant="h4"
+              variant="h5"
               sx={{
                 textDecoration: "none",
                 color: "#1f2a1f",
                 fontWeight: 800,
-                letterSpacing: 0.3,
-                mb: 2,
+                letterSpacing: 0.2,
+                mb: 1.5,
                 "&:hover": {
                   opacity: 0.75,
                 },
@@ -678,12 +616,12 @@ function Signup() {
             </Typography>
 
             <Typography
-              variant="h5"
+              variant="h6"
               sx={{
                 fontWeight: 700,
                 lineHeight: 1.4,
                 color: "#1f2a1f",
-                mb: 1.5,
+                mb: 1,
               }}
             >
               공원과 더 가까워지는
@@ -695,14 +633,15 @@ function Signup() {
               variant="body2"
               sx={{
                 color: "text.secondary",
-                lineHeight: 1.8,
+                lineHeight: 1.7,
+                fontSize: "0.9rem",
               }}
             >
               회원가입 후 주변 공원 탐색,
               <br />
               위치 기반 검색,
               <br />
-              다양한 공원 정보 확인이 가능해져요.
+              다양한 공원 정보를 확인해보세요.
             </Typography>
           </Box>
 
@@ -713,6 +652,11 @@ function Signup() {
               overflowY: "auto",
               display: "flex",
               flexDirection: "column",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              "&::-webkit-scrollbar": {
+                display: "none",
+              },
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -734,7 +678,12 @@ function Signup() {
             >
               <input type="hidden" name="social_provider" value="local" />
 
-              <Box sx={{ flex: 1 }}>
+              <Box
+                sx={{
+                  flex: 1,
+                  pb: { xs: 12, md: 10 },
+                }}
+              >
                 <Stack spacing={1.2}>
                   <Box
                     sx={{
@@ -851,211 +800,260 @@ function Signup() {
 
                   <Box
                     sx={{
-                      display: "grid",
-                      gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.9fr" },
-                      gap: 1.2,
-                      alignItems: "start",
+                      p: 1.5,
+                      border: "1px solid #eef1ee",
+                      borderRadius: 3,
+                      bgcolor: "#fcfdfc",
                     }}
                   >
-                    <Box>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          mb: 0.75,
-                          fontWeight: 700,
-                          color: errors.birth ? "error.main" : "text.primary",
-                        }}
-                      >
-                        생년월일
-                      </Typography>
-
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(3, 1fr)",
-                          gap: 1,
-                        }}
-                      >
-                        <TextField
-                          fullWidth
-                          size="small"
-                          select
-                          label="년도"
-                          name="year"
-                          value={form.year}
-                          onChange={handleChange}
-                          error={!!errors.birth}
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", lg: "1.15fr 0.85fr" },
+                        columnGap: 3,
+                        rowGap: 1.2,
+                        alignItems: "start",
+                      }}
+                    >
+                      <Box>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            mb: 0.75,
+                            fontWeight: 700,
+                            color: errors.birth ? "error.main" : "text.primary",
+                          }}
                         >
-                          <MenuItem value="">선택</MenuItem>
-                          {years.map((year) => (
-                            <MenuItem key={year} value={year}>
-                              {year}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                          생년월일
+                        </Typography>
 
-                        <TextField
-                          fullWidth
-                          size="small"
-                          select
-                          label="월"
-                          name="month"
-                          value={form.month}
-                          onChange={handleChange}
-                          error={!!errors.birth}
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(3, 1fr)",
+                            gap: 1,
+                          }}
                         >
-                          <MenuItem value="">선택</MenuItem>
-                          {months.map((month) => (
-                            <MenuItem key={month} value={month}>
-                              {month}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            select
+                            label="년도"
+                            name="year"
+                            value={form.year}
+                            onChange={handleChange}
+                            error={!!errors.birth}
+                          >
+                            <MenuItem value="">선택</MenuItem>
+                            {years.map((year) => (
+                              <MenuItem key={year} value={year}>
+                                {year}
+                              </MenuItem>
+                            ))}
+                          </TextField>
 
-                        <TextField
-                          fullWidth
-                          size="small"
-                          select
-                          label="일"
-                          name="day"
-                          value={form.day}
-                          onChange={handleChange}
-                          error={!!errors.birth}
+                          <TextField
+                            fullWidth
+                            size="small"
+                            select
+                            label="월"
+                            name="month"
+                            value={form.month}
+                            onChange={handleChange}
+                            error={!!errors.birth}
+                          >
+                            <MenuItem value="">선택</MenuItem>
+                            {months.map((month) => (
+                              <MenuItem key={month} value={month}>
+                                {month}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+
+                          <TextField
+                            fullWidth
+                            size="small"
+                            select
+                            label="일"
+                            name="day"
+                            value={form.day}
+                            onChange={handleChange}
+                            error={!!errors.birth}
+                          >
+                            <MenuItem value="">선택</MenuItem>
+                            {days.map((day) => (
+                              <MenuItem key={day} value={day}>
+                                {day}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </Box>
+
+                        <Typography
+                          variant="caption"
+                          color="error"
+                          sx={{ display: "block", mt: 0.4, minHeight: 18 }}
                         >
-                          <MenuItem value="">선택</MenuItem>
-                          {days.map((day) => (
-                            <MenuItem key={day} value={day}>
-                              {day}
-                            </MenuItem>
-                          ))}
-                        </TextField>
+                          {errors.birth || " "}
+                        </Typography>
                       </Box>
 
-                      <Typography
-                        variant="caption"
-                        color="error"
-                        sx={{ display: "block", mt: 0.4, minHeight: 18 }}
-                      >
-                        {errors.birth || " "}
-                      </Typography>
-                    </Box>
+                      <Box>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ mb: 0.75, fontWeight: 700 }}
+                        >
+                          성별
+                        </Typography>
 
-                    <FormControl error={!!errors.gender}>
-                      <FormLabel sx={{ fontWeight: 700, mb: 0.25 }}>
-                        성별
-                      </FormLabel>
-                      <RadioGroup
-                        row
-                        name="gender"
-                        value={form.gender}
-                        onChange={handleChange}
-                      >
-                        <FormControlLabel
-                          value="male"
-                          control={<Radio size="small" />}
-                          label="남자"
-                        />
-                        <FormControlLabel
-                          value="female"
-                          control={<Radio size="small" />}
-                          label="여자"
-                        />
-                      </RadioGroup>
-                      <Typography
-                        variant="caption"
-                        color="error"
-                        sx={{ minHeight: 18 }}
-                      >
-                        {errors.gender || " "}
-                      </Typography>
-                    </FormControl>
+                        <Box
+                          sx={{
+                            minHeight: 40,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <RadioGroup
+                            row
+                            name="gender"
+                            value={form.gender}
+                            onChange={handleChange}
+                          >
+                            <FormControlLabel
+                              value="male"
+                              control={<Radio size="small" />}
+                              label="남자"
+                            />
+                            <FormControlLabel
+                              value="female"
+                              control={<Radio size="small" />}
+                              label="여자"
+                            />
+                          </RadioGroup>
+                        </Box>
+
+                        <Typography
+                          variant="caption"
+                          color="error"
+                          sx={{ display: "block", mt: 0.4, minHeight: 18 }}
+                        >
+                          {errors.gender || " "}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Box>
 
                   <Box
                     sx={{
-                      display: "grid",
-                      gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.8fr" },
-                      gap: 1.2,
-                      alignItems: "start",
+                      p: 1.5,
+                      border: "1px solid #eef1ee",
+                      borderRadius: 3,
+                      bgcolor: "#fcfdfc",
                     }}
                   >
-                    <Box>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ mb: 0.75, fontWeight: 700 }}
-                      >
-                        휴대폰 번호
-                      </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", lg: "1.15fr 0.85fr" },
+                        columnGap: 3,
+                        rowGap: 1.2,
+                        alignItems: "start",
+                      }}
+                    >
+                      <Box>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ mb: 0.75, fontWeight: 700 }}
+                        >
+                          휴대폰 번호
+                        </Typography>
 
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 12px 1fr 12px 1fr",
-                          alignItems: "center",
-                          gap: 0.4,
-                        }}
-                      >
-                        <TextField
-                          size="small"
-                          fullWidth
-                          placeholder="010"
-                          name="phone1"
-                          value={form.phone1}
-                          onChange={handleNumberChange}
-                          inputProps={{ maxLength: 3 }}
-                          error={!!errors.phone1}
-                        />
-                        <Typography textAlign="center">-</Typography>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          placeholder="1234"
-                          name="phone2"
-                          value={form.phone2}
-                          onChange={handleNumberChange}
-                          inputProps={{ maxLength: 4 }}
-                          error={!!errors.phone1}
-                        />
-                        <Typography textAlign="center">-</Typography>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          placeholder="5678"
-                          name="phone3"
-                          value={form.phone3}
-                          onChange={handleNumberChange}
-                          inputProps={{ maxLength: 4 }}
-                          error={!!errors.phone1}
-                        />
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 12px 1fr 12px 1fr",
+                            alignItems: "center",
+                            gap: 0.4,
+                          }}
+                        >
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="010"
+                            name="phone1"
+                            value={form.phone1}
+                            onChange={handleNumberChange}
+                            inputProps={{ maxLength: 3 }}
+                            error={!!errors.phone1}
+                          />
+                          <Typography textAlign="center">-</Typography>
+
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="1234"
+                            name="phone2"
+                            value={form.phone2}
+                            onChange={handleNumberChange}
+                            inputProps={{ maxLength: 4 }}
+                            error={!!errors.phone1}
+                          />
+                          <Typography textAlign="center">-</Typography>
+
+                          <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="5678"
+                            name="phone3"
+                            value={form.phone3}
+                            onChange={handleNumberChange}
+                            inputProps={{ maxLength: 4 }}
+                            error={!!errors.phone1}
+                          />
+                        </Box>
+
+                        <Typography
+                          variant="caption"
+                          color="error"
+                          sx={{ display: "block", mt: 0.4, minHeight: 18 }}
+                        >
+                          {errors.phone1 || " "}
+                        </Typography>
                       </Box>
 
-                      <Typography
-                        variant="caption"
-                        color="error"
-                        sx={{ display: "block", mt: 0.4, minHeight: 18 }}
-                      >
-                        {errors.phone1 || " "}
-                      </Typography>
-                    </Box>
+                      <Box>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ mb: 0.75, fontWeight: 700 }}
+                        >
+                          통신사
+                        </Typography>
 
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      label="통신사"
-                      name="telecomProvider"
-                      value={form.telecomProvider}
-                      onChange={handleChange}
-                      error={!!errors.telecomProvider}
-                      helperText={errors.telecomProvider || " "}
-                      sx={{ mt: { xs: 0, lg: 3.1 } }}
-                    >
-                      <MenuItem value="">선택</MenuItem>
-                      <MenuItem value="SKT">SKT</MenuItem>
-                      <MenuItem value="KT">KT</MenuItem>
-                      <MenuItem value="LGU+">LGU+</MenuItem>
-                      <MenuItem value="알뜰폰">알뜰폰</MenuItem>
-                    </TextField>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          name="telecomProvider"
+                          value={form.telecomProvider}
+                          onChange={handleChange}
+                          error={!!errors.telecomProvider}
+                        >
+                          <MenuItem value="">선택</MenuItem>
+                          <MenuItem value="SKT">SKT</MenuItem>
+                          <MenuItem value="KT">KT</MenuItem>
+                          <MenuItem value="LGU+">LGU+</MenuItem>
+                          <MenuItem value="알뜰폰">알뜰폰</MenuItem>
+                        </TextField>
+
+                        <Typography
+                          variant="caption"
+                          color="error"
+                          sx={{ display: "block", mt: 0.4, minHeight: 18 }}
+                        >
+                          {errors.telecomProvider || " "}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Box>
 
                   <Divider sx={{ my: 0.25 }} />
@@ -1071,7 +1069,10 @@ function Signup() {
                     <Box
                       sx={{
                         display: "grid",
-                        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 120px" },
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          md: "1.25fr 32px 1fr 1fr 116px",
+                        },
                         gap: 1,
                         alignItems: "start",
                       }}
@@ -1088,6 +1089,19 @@ function Signup() {
                         helperText={errors.emailId || " "}
                       />
 
+                      <Box
+                        sx={{
+                          height: 40,
+                          display: { xs: "none", md: "flex" },
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          color: "text.secondary",
+                        }}
+                      >
+                        @
+                      </Box>
+
                       <TextField
                         fullWidth
                         size="small"
@@ -1101,6 +1115,21 @@ function Signup() {
                         InputProps={{ readOnly: domainReadOnly }}
                       />
 
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        label="도메인 선택"
+                        value={selectedDomainOption}
+                        onChange={handleDomainSelect}
+                        helperText=" "
+                      >
+                        <MenuItem value="">직접입력</MenuItem>
+                        <MenuItem value="gmail.com">gmail.com</MenuItem>
+                        <MenuItem value="naver.com">naver.com</MenuItem>
+                        <MenuItem value="daum.net">daum.net</MenuItem>
+                      </TextField>
+
                       <Button
                         type="button"
                         variant="outlined"
@@ -1110,6 +1139,7 @@ function Signup() {
                           borderRadius: 2,
                           fontWeight: 700,
                           whiteSpace: "nowrap",
+                          minWidth: 116,
                         }}
                       >
                         이메일 확인
@@ -1118,32 +1148,7 @@ function Signup() {
 
                     <Box
                       sx={{
-                        mt: 0.4,
-                        display: "grid",
-                        gridTemplateColumns: { xs: "1fr", sm: "1fr 120px" },
-                        gap: 1,
-                        alignItems: "start",
-                      }}
-                    >
-                      <TextField
-                        select
-                        size="small"
-                        label="도메인 선택"
-                        defaultValue=""
-                        onChange={handleDomainSelect}
-                      >
-                        <MenuItem value="">직접입력</MenuItem>
-                        <MenuItem value="gmail.com">gmail.com</MenuItem>
-                        <MenuItem value="naver.com">naver.com</MenuItem>
-                        <MenuItem value="daum.net">daum.net</MenuItem>
-                      </TextField>
-
-                      <Box sx={{ minHeight: 40 }} />
-                    </Box>
-
-                    <Box
-                      sx={{
-                        mt: 0.8,
+                        mt: 0.2,
                         display: "grid",
                         gridTemplateColumns: {
                           xs: "1fr",
@@ -1232,13 +1237,17 @@ function Signup() {
                     <Typography
                       variant="body2"
                       sx={{
-                        mt: 0.6,
-                        minHeight: 20,
+                        mt: 0.4,
+                        minHeight: 24,
+                        lineHeight: 1.5,
+                        wordBreak: "keep-all",
                         color: emailVerified
                           ? "success.main"
                           : emailCodeMsg
                             ? "error.main"
-                            : "text.secondary",
+                            : emailMsg === "이미 가입된 이메일입니다."
+                              ? "error.main"
+                              : "text.secondary",
                       }}
                     >
                       {emailVerified
@@ -1255,9 +1264,10 @@ function Signup() {
                   bottom: 0,
                   mt: 1.5,
                   pt: 1.2,
-                  pb: 0.4,
+                  pb: 1,
                   bgcolor: "#fff",
                   borderTop: "1px solid #e6ebe6",
+                  zIndex: 2,
                 }}
               >
                 <Button
