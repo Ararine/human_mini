@@ -72,7 +72,7 @@ function FindId() {
     }
 
     try {
-      const response = await fetch("/api/find-id/send-code", {
+      const response = await fetch("http://localhost:5000/find-id/send-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -116,13 +116,16 @@ function FindId() {
     }
 
     try {
-      const response = await fetch("/api/find-id/verify-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "http://localhost:5000/find-id/verify-code",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, code }),
         },
-        body: JSON.stringify({ email, code }),
-      });
+      );
 
       const data = await response.json();
 

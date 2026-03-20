@@ -11,26 +11,39 @@ import {
   Alert,
   Divider,
 } from "@mui/material";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+
+const API_BASE_URL = "http://localhost:5000";
 
 const ID_REGEX = /^[A-Za-z0-9]{8,12}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_REGEX = /^\d{6}$/;
-const EXPIRE_TIME = 300; // 5분 = 300초
+const EXPIRE_TIME = 300;
+
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,16}$/;
 
 export default function FindPassword() {
-  const navigate = useNavigate();
-
   const [form, setForm] = useState({
     userId: "",
     email: "",
     code: "",
   });
 
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+
   const [errors, setErrors] = useState({
     userId: "",
     email: "",
     code: "",
+  });
+
+  const [passwordErrors, setPasswordErrors] = useState({
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const [alertInfo, setAlertInfo] = useState({
@@ -41,11 +54,7 @@ export default function FindPassword() {
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
-  const [matchedIds, setMatchedIds] = useState([]);
-
-  // 실제 서버에서는 state에 인증코드 저장하면 안 됨
-  // 지금은 화면 테스트용 mock 데이터
-  const [mockServerCode, setMockServerCode] = useState("");
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
 
   useEffect(() => {
     let timer = null;
@@ -87,6 +96,34 @@ export default function FindPassword() {
     }));
 
     setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
+
+    if (name === "userId" || name === "email") {
+      setIsVerified(false);
+      setPasswordForm({
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordErrors({
+        newPassword: "",
+        confirmPassword: "",
+      });
+    }
+
+    clearAlert();
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+
+    setPasswordForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setPasswordErrors((prev) => ({
       ...prev,
       [name]: "",
     }));
@@ -146,38 +183,68 @@ export default function FindPassword() {
     return isValid;
   };
 
-  const generateMockCode = () => {
-    return String(Math.floor(100000 + Math.random() * 900000));
+  const validatePasswordForm = () => {
+    const newErrors = {
+      newPassword: "",
+      confirmPassword: "",
+    };
+    let isValid = true;
+
+    if (!passwordForm.newPassword.trim()) {
+      newErrors.newPassword = "새 비밀번호를 입력해주세요.";
+      isValid = false;
+    } else if (!PASSWORD_REGEX.test(passwordForm.newPassword.trim())) {
+      newErrors.newPassword =
+        "비밀번호는 8~16자, 영문 대/소문자, 숫자, 특수문자를 포함해야 합니다.";
+      isValid = false;
+    }
+
+    if (!passwordForm.confirmPassword.trim()) {
+      newErrors.confirmPassword = "새 비밀번호 확인을 입력해주세요.";
+      isValid = false;
+    } else if (
+      passwordForm.newPassword.trim() !== passwordForm.confirmPassword.trim()
+    ) {
+      newErrors.confirmPassword = "새 비밀번호가 일치하지 않습니다.";
+      isValid = false;
+    }
+
+    setPasswordErrors(newErrors);
+    return isValid;
   };
 
   const handleSendCode = async () => {
     clearAlert();
     setIsVerified(false);
-    setMatchedIds([]);
+    setPasswordForm({
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordErrors({
+      newPassword: "",
+      confirmPassword: "",
+    });
 
     if (!validateUserInfo()) return;
 
     try {
-      // ===== mock 처리 =====
-      if (form.userId.trim() === "unknown") {
-        throw new Error("입력하신 아이디가 존재하지 않습니다.");
+      const response = await fetch(`${API_BASE_URL}/send-email-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || data?.message || "임시 코드 전송에 실패했습니다.",
+        );
       }
-
-      if (form.email.trim() === "none@none.com") {
-        throw new Error("입력하신 이메일이 존재하지 않습니다.");
-      }
-
-      if (
-        form.userId.trim() === "testuser" &&
-        form.email.trim() !== "test@gmail.com"
-      ) {
-        throw new Error("입력하신 아이디와 이메일 정보가 일치하지 않습니다.");
-      }
-
-      const newCode = generateMockCode();
-      setMockServerCode(newCode);
-
-      console.log("테스트용 인증코드:", newCode);
 
       setIsCodeSent(true);
       setRemainingTime(EXPIRE_TIME);
@@ -188,7 +255,7 @@ export default function FindPassword() {
 
       setAlertInfo({
         type: "success",
-        message: "임시 코드가 이메일로 전송되었습니다.",
+        message: data?.message || "임시 코드가 이메일로 전송되었습니다.",
       });
     } catch (error) {
       setAlertInfo({
@@ -200,26 +267,46 @@ export default function FindPassword() {
 
   const handleResendCode = async () => {
     clearAlert();
+    setIsVerified(false);
+    setPasswordForm({
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordErrors({
+      newPassword: "",
+      confirmPassword: "",
+    });
 
     if (!validateUserInfo()) return;
 
     try {
-      const newCode = generateMockCode();
-      setMockServerCode(newCode);
+      const response = await fetch(`${API_BASE_URL}/send-email-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email.trim(),
+        }),
+      });
 
-      console.log("재발급 테스트용 인증코드:", newCode);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || data?.message || "임시 코드 재발급에 실패했습니다.",
+        );
+      }
 
       setRemainingTime(EXPIRE_TIME);
       setForm((prev) => ({
         ...prev,
         code: "",
       }));
-      setIsVerified(false);
-      setMatchedIds([]);
 
       setAlertInfo({
         type: "success",
-        message: "임시 코드가 재발급되었습니다.",
+        message: data?.message || "임시 코드가 재발급되었습니다.",
       });
     } catch (error) {
       setAlertInfo({
@@ -243,17 +330,34 @@ export default function FindPassword() {
     }
 
     try {
-      if (form.code.trim() !== mockServerCode) {
-        throw new Error("임시 코드가 일치하지 않습니다.");
+      const response = await fetch(`${API_BASE_URL}/verify-email-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          code: form.code.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || data?.message || "임시 코드 인증에 실패했습니다.",
+        );
       }
 
-      const mockIds = [form.userId.trim()];
-      setMatchedIds(mockIds);
+      // 백엔드 응답값 형태가 아직 확실하지 않을 수 있어서
+      // ok만 통과하면 인증 성공으로 처리
       setIsVerified(true);
 
       setAlertInfo({
         type: "success",
-        message: "이메일 인증이 완료되었습니다.",
+        message:
+          data?.message ||
+          "이메일 인증이 완료되었습니다. 새 비밀번호를 입력해주세요.",
       });
     } catch (error) {
       setAlertInfo({
@@ -263,8 +367,119 @@ export default function FindPassword() {
     }
   };
 
-  const handleMoveResetPassword = () => {
-    navigate("/reset-password");
+  const handleResetPassword = async () => {
+    clearAlert();
+
+    if (!isVerified) {
+      setAlertInfo({
+        type: "error",
+        message: "먼저 이메일 인증을 완료해주세요.",
+      });
+      return;
+    }
+
+    if (!validatePasswordForm()) return;
+
+    setIsSubmittingReset(true);
+
+    try {
+      // =========================================================
+      // [임시 처리]
+      // 현재는 비밀번호 찾기 전용 reset API 스펙이 확정되지 않았다고 보고
+      // 성공 안내만 임시로 띄우는 상태
+      // =========================================================
+      setAlertInfo({
+        type: "info",
+        message:
+          "현재 비밀번호 재설정 API 연결 전 단계입니다. 백엔드 스펙 확정 후 아래 주석 코드를 사용해 연결하면 됩니다.",
+      });
+
+      // =========================================================
+      // [백엔드 연결 시 사용할 코드 예시 1]
+      // forgot-password 전용 API가 따로 생기는 경우
+      // 예: POST /forgot-password/reset
+      // body: { username, email, code, new_password }
+      // =========================================================
+      /*
+      const response = await fetch(`${API_BASE_URL}/forgot-password/reset`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: form.userId.trim(),
+          email: form.email.trim(),
+          code: form.code.trim(),
+          new_password: passwordForm.newPassword.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || data?.message || "비밀번호 변경에 실패했습니다."
+        );
+      }
+
+      setAlertInfo({
+        type: "success",
+        message: data?.message || "비밀번호가 성공적으로 변경되었습니다.",
+      });
+
+      setForm({
+        userId: "",
+        email: "",
+        code: "",
+      });
+      setPasswordForm({
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setIsCodeSent(false);
+      setIsVerified(false);
+      setRemainingTime(0);
+      */
+
+      // =========================================================
+      // [백엔드 연결 시 사용할 코드 예시 2]
+      // 기존 /reset-password 를 그대로 써야 하는 경우
+      // 단, 이 경우 old_password가 필요하면 비밀번호 찾기 흐름과 안 맞을 수 있음
+      // =========================================================
+      /*
+      const response = await fetch(`${API_BASE_URL}/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: form.userId.trim(),
+          old_password: "기존비밀번호필수면_이흐름으로는사용불가",
+          new_password: passwordForm.newPassword.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail || data?.message || "비밀번호 변경에 실패했습니다."
+        );
+      }
+
+      setAlertInfo({
+        type: "success",
+        message: data?.message || "비밀번호가 성공적으로 변경되었습니다.",
+      });
+      */
+    } catch (error) {
+      setAlertInfo({
+        type: "error",
+        message: error.message || "비밀번호 변경에 실패했습니다.",
+      });
+    } finally {
+      setIsSubmittingReset(false);
+    }
   };
 
   return (
@@ -474,24 +689,43 @@ export default function FindPassword() {
                     fontWeight="bold"
                     gutterBottom
                   >
-                    인증된 이메일에 해당하는 아이디
+                    새 비밀번호 설정
                   </Typography>
 
-                  <Stack spacing={1} sx={{ mt: 1 }}>
-                    {matchedIds.map((id, index) => (
-                      <Box
-                        key={`${id}-${index}`}
-                        sx={{
-                          px: 2,
-                          py: 1.2,
+                  <Stack spacing={2} sx={{ mt: 2 }}>
+                    <TextField
+                      fullWidth
+                      type="password"
+                      label="새 비밀번호"
+                      name="newPassword"
+                      value={passwordForm.newPassword}
+                      onChange={handlePasswordChange}
+                      error={!!passwordErrors.newPassword}
+                      helperText={passwordErrors.newPassword}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
                           borderRadius: 2,
-                          bgcolor: "#fff",
-                          border: "1px solid #e0e0e0",
-                        }}
-                      >
-                        <Typography variant="body1">{id}</Typography>
-                      </Box>
-                    ))}
+                          backgroundColor: "#fff",
+                        },
+                      }}
+                    />
+
+                    <TextField
+                      fullWidth
+                      type="password"
+                      label="새 비밀번호 확인"
+                      name="confirmPassword"
+                      value={passwordForm.confirmPassword}
+                      onChange={handlePasswordChange}
+                      error={!!passwordErrors.confirmPassword}
+                      helperText={passwordErrors.confirmPassword}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                          backgroundColor: "#fff",
+                        },
+                      }}
+                    />
                   </Stack>
 
                   <Button
@@ -507,9 +741,10 @@ export default function FindPassword() {
                         boxShadow: "none",
                       },
                     }}
-                    onClick={handleMoveResetPassword}
+                    onClick={handleResetPassword}
+                    disabled={isSubmittingReset}
                   >
-                    비밀번호 재설정하기
+                    {isSubmittingReset ? "처리 중..." : "비밀번호 변경하기"}
                   </Button>
                 </Box>
               )}
