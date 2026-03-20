@@ -49,12 +49,6 @@ def send_email(to_email: str, code: str):
     msg["To"] = to_email   
     msg["Subject"] = "[NEARGARDEN] 이메일 인증코드"
 
-    
-    # .env값이 제대로 로드되는지 확인을 위해 삽입(디버깅용) / 터미널 창에서 확인 가능
-    print(f"SMTP_EMAIL: {smtp_email}")      # ← 추가
-    print(f"발송 대상: {to_email}")          # ← 추가
-    print(f"인증코드: {code}")               # ← 추가
-
     body = f"""
     안녕하세요, NEARGARDEN입니다.
     

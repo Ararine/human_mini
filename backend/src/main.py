@@ -17,7 +17,7 @@ import sys, uvicorn
 from sqlalchemy import text 
 
 from util.database import engine 
-from route import login, signup, mypage
+from route import login, signup, mypage, find_user
 
 
 app=FastAPI()   # FastAPI 앱 인스턴스 생성
@@ -43,7 +43,7 @@ app.add_middleware(SessionMiddleware, secret_key=secret_key)
 app.include_router(login.router)
 app.include_router(signup.router)
 app.include_router(mypage.router) 
-
+app.include_router(find_user.router)
 
 if __name__ == "__main__":
     try:

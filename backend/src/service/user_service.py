@@ -1,7 +1,5 @@
 import os
 from sqlalchemy import create_engine, text
-# from sqlalchemy.orm import sessionmaker  #  ORM 방식 안 쓰고 있어서 주석 처리 / 추후 필요 시 사용 
-# 현 프로젝트는 Raw SQL 방식
 from util.database import engine 
 from typing import Union
 
@@ -27,3 +25,12 @@ def change_password_in_db(username: str, new_hash: bytes):
     # SQLAlchemy에서 engine.connect()는 
     # 기본적으로 autocommit이 비활성화되어 있어서 명시적으로 commit()을 호출해야 DB에 반영됨 
     # engine.begin()은 자동 commit 포함
+    
+    
+# 아이디 찾기 및 비밀번호 재설정 위한 이메일 검색 기능    
+def get_user_by_email(email: str):
+    query = text("SELECT * FROM users WHERE email = :email")
+    with engine.connect() as conn:
+        result = conn.execute(query, {"email": email})
+        user_row = result.fetchone()
+    return user_row  # 없으면 None

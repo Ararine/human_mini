@@ -35,3 +35,6 @@ postgres_data
 
 ### Python ###
 .venv/
+
+# 내 경로의 도커 컴포즈 제외
+docker-compose.yml
