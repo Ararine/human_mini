@@ -52,21 +52,35 @@ def create_user(
 
 # 로그인 로직 -> username 기반 조회
 # 수정/삭제/히스토리 연동 -> id 기반 조회 사용
+# 아이디 찾기/ 비밀번호 재설정 -> email 기반 조회 사용
 # [READ] 통합 조회 함수
-def get_user(db: Session, user_id: int = None, username: str = None) -> dict:
-    """
-    SQL: SELECT * FROM users WHERE id = :user_id LIMIT 1;
-    """
-    if user_id:
-        user= db.query(User).filter(User.id == user_id).first()
-        """
-        SQL: SELECT * FROM users WHERE username = :username LIMIT 1;
-        """
-    elif username:
-        user= db.query(User).filter(User.username == username).first()
-    else: 
+def get_user(db: Session, user_id: int = None, username: str = None, email: str = None) -> dict:
+    try:
+        user = None
+        
+        # 1. ID 조회 (Primary Key - 가장 빠름)
+        if user_id is not None:
+            user = db.query(User).filter(User.id == user_id).first()
+        
+        # 2. Username 조회 (Unique Constraint)
+        elif username:
+            user = db.query(User).filter(User.username == username).first()
+            
+        # 3. Email 조회 (Unique Constraint)
+        elif email:
+            user = db.query(User).filter(User.email == email).first()
+            
+        # 데이터가 없는 경우 처리 (None 리턴)
+        if not user:
+            return None
+
+        # 데이터가 존재할 때만 dict 변환
+        return to_dict(user)
+
+    except SQLAlchemyError as e:
+        # DB 연결 실패 등의 예외 발생 시 로그 기록 및 보안상 간략한 리턴
+        print(f"Database query error in get_user: {str(e)}")
         return None
-    return to_dict(user)
 
 def update_user_info(db: Session, user_id: int, update_data: dict) -> bool:
     """
