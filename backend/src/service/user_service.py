@@ -1,36 +1,37 @@
-import os
-from sqlalchemy import create_engine, text
-from util.database import engine 
-from typing import Union
+from util.database import SessionLocal
+from model.user_handler import get_user
 
 
-# 디비에서 유저 정보 가져오기
+# username을 받아서 디비에서 유저 정보를 조회하는 함수 
 def get_user_from_db(username: str):
-    query = text("SELECT * FROM users WHERE username = :username")
-    with engine.connect() as conn:
-        result = conn.execute(query, {"username": username})
-        user_row = result.fetchone()
-    return user_row  # 반환되는 값은 해당 username에 해당하는 사용자 데이터 한 행(없으면 None)
+    db = SessionLocal()
+    try:
+        return get_user(db, username=username)
+    finally:
+        db.close()  
 
 
-# 비밀번호 변경
-def change_password_in_db(username: str, new_hash: bytes):
-    new_hash_str = new_hash.decode('utf-8')
-    with engine.begin() as conn:  # engine.begin()은 자동 commit 포함
-        conn.execute(
-            text("UPDATE users SET hashed_password = :new_hash WHERE username = :username"),
-            {"new_hash": new_hash_str, "username": username}
-        )
-
-    # SQLAlchemy에서 engine.connect()는 
-    # 기본적으로 autocommit이 비활성화되어 있어서 명시적으로 commit()을 호출해야 DB에 반영됨 
-    # engine.begin()은 자동 commit 포함
-    
-    
-# 아이디 찾기 및 비밀번호 재설정 위한 이메일 검색 기능    
-def get_user_by_email(email: str):
-    query = text("SELECT * FROM users WHERE email = :email")
-    with engine.connect() as conn:
-        result = conn.execute(query, {"email": email})
-        user_row = result.fetchone()
-    return user_row  # 없으면 None
+# 비밀번호 변경  
+# user_handler.py에 비밀번호 변경 함수 작성 대신 여기서 ORM 객체로 조회 후 쿼리 작성
+# username과 새 비밀번호 해시를 받아서 변경
+def change_password_in_db(username: str, new_hash: bytes) -> bool:
+    db = SessionLocal()
+    try:
+        # bytes 타입인 new_hash를 문자열로 변환
+        new_hash_str = new_hash.decode('utf-8')
+        user = get_user(db, username=username)  # dict 형태로 유저 조회
+        if not user:
+            # 먼저 유저가 존재하는지 확인, 없으면 False 반환
+            return False  
+        from table.user import User
+        user["hashed_password"] = new_hash_str
+        # ORM 객체로 조회 /  ORM 쿼리 작성 부분
+        db_user = db.query(User).filter(User.username == username).first()  # username이 같은 ORM 객체 조회
+        db_user.hashed_password = new_hash_str  # 객체의 비밀번호 변경
+        db.commit()  # 변경 비밀번호 DB에 저장 
+        return True   
+        print(f"Change Password Error: {e}")
+        db.rollback()  # 오류 발생 시 변경사항 취소
+        return False
+    finally:
+        db.close()  
