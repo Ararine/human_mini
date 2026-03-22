@@ -7,9 +7,10 @@ from schema.mypage import PatchUserRequest
 async def get_park(request: Request, coordinate : list[float] = Query(...), keyword: str = Query(...)):
     try:
         parks = await park_service.get_park(keyword, coordinate)
-        username = request.session["user"]
+        loginYn = True if "user" in request.session else False
         # print("parks", parks)
-        if username :
+        if loginYn :
+            username = request.session["user"]  
             history_service.add_search_query(keyword, username)
         return JSONResponse(
             status_code=status.HTTP_200_OK,
