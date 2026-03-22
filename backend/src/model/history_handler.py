@@ -2,6 +2,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
 from table import SearchHistory
+from table import Park
+
+import json
+from geoalchemy2.functions import ST_AsGeoJSON, ST_FlipCoordinates
 
 #  SQLAlchemy 객체를 딕셔너리로 변환 
 def history_to_dict(row):
@@ -29,21 +33,48 @@ def insert_search_query(db: Session, username: str, query: str) -> bool:
         return False
 
 # [READ] 특정 유저의 '삭제되지 않은' 검색 기록 전체 조회
-def get_user_search_histories(db: Session, user_id: int) -> list[dict]:
+def get_user_search_histories(db: Session, username: str) -> list[dict]:
     """
     특정 유저(PK)의 기록 중 del_yn이 'N'인 것만 최신순으로 가져오기
     [실행되는 SQL]
-    SELECT * FROM search_histories 
+    SELECT * FROM search_histories sh
+    LEFT OUTER JOIN parks p
+    on sh.search_query = p.park_name
     WHERE user_id = :user_id AND del_yn = 'N' 
     ORDER BY created_at DESC;
     """
     try:
-        histories = db.query(SearchHistory).filter(
-            SearchHistory.user_id == user_id,
+        data = db.query(
+            SearchHistory,
+            Park.address,
+            # ST_AsGeoJSON(ST_FlipCoordinates(Park.geom)).label('geom_json'),
+            ).outerjoin(
+                Park, SearchHistory.search_query == Park.park_name).filter(
+            SearchHistory.username == username,
             SearchHistory.del_yn == "N"
         ).order_by(SearchHistory.created_at.desc()).all()
+                
+        histories = []
         
-        return [history_to_dict(h) for h in histories]
+        for row in data :
+            
+            SearchHistory_obj, address = row
+            # SearchHistory_obj, address, geom_json = row
+            
+            # __table__.columns를 순회하며 모두 담음
+            history_dict = {
+                col.name: getattr(SearchHistory_obj, col.name)
+                for col in SearchHistory_obj.__table__.columns
+            }
+
+            history_dict['address'] = address
+            # json.loads를 통해 문자열을 실제 파이썬 딕셔너리/리스트 구조로 변환
+            # history_dict['location'] = json.loads(geom_json) if geom_json else None
+
+            # 검색 기록 정보 추가
+            histories.append(history_dict)
+        
+        return histories
     except SQLAlchemyError as e:
         print(f"Read Search History Error: {e}")
         return []
@@ -73,7 +104,7 @@ def soft_delete_history(db: Session, history_id: int) -> bool:
         return False
 
 # [DELETE] 특정 유저의 히스토리 전체 '소프트 삭제' (일괄 처리)
-def soft_delete_all_user_history(db: Session, user_id: int) -> bool:
+def soft_delete_all_user_history(db: Session, username: str) -> bool:
     """
     설명: 유저가 '검색 기록 전체 삭제' 버튼을 눌렀을 때 사용
     [실행되는 SQL]
@@ -83,7 +114,7 @@ def soft_delete_all_user_history(db: Session, user_id: int) -> bool:
     """
     try:
         db.query(SearchHistory).filter(
-            SearchHistory.user_id == user_id,
+            SearchHistory.username == username,
             SearchHistory.del_yn == "N"
         ).update({
             "del_yn": "Y",

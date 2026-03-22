@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import {
   Box,
   Button,
@@ -16,7 +15,6 @@ import {
   Stack,
   TextField,
   Typography,
-  CircularProgress,
 } from "@mui/material";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
@@ -36,18 +34,67 @@ const PASSWORD_REGEX =
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const API_BASE_URL = "http://localhost:5000";
+const RECENT_SEARCHES_KEY = "recentSearches";
+const MAX_RECENT_SEARCHES = 10;
 
-const API_ENDPOINTS = {
-  getUser: `${API_BASE_URL}/get-user`,
-  logout: `${API_BASE_URL}/logout`,
-  users: `${API_BASE_URL}/users`,
-  recentSearches: `${API_BASE_URL}/recent-searches`,
-};
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  withCredentials: true,
-});
+const DEFAULT_RECENT_SEARCHES = [
+  {
+    id: 1,
+    name: "서울숲",
+    address: "서울 성동구 뚝섬로 273",
+    lat: 37.5444,
+    lng: 127.0374,
+  },
+  {
+    id: 2,
+    name: "올림픽공원",
+    address: "서울 송파구 올림픽로 424",
+    lat: 37.5207,
+    lng: 127.121,
+  },
+  {
+    id: 3,
+    name: "보라매공원",
+    address: "서울 동작구 여의대방로20길 33",
+    lat: 37.4927,
+    lng: 126.9195,
+  },
+  {
+    id: 4,
+    name: "여의도공원",
+    address: "서울 영등포구 여의공원로 68",
+    lat: 37.5263,
+    lng: 126.924,
+  },
+  {
+    id: 5,
+    name: "북서울꿈의숲",
+    address: "서울 강북구 월계로 173",
+    lat: 37.6204,
+    lng: 127.0417,
+  },
+  {
+    id: 6,
+    name: "서울대공원",
+    address: "경기 과천시 대공원광장로 102",
+    lat: 37.4351,
+    lng: 127.0195,
+  },
+  {
+    id: 7,
+    name: "어린이대공원",
+    address: "서울 광진구 능동로 216",
+    lat: 37.5486,
+    lng: 127.081,
+  },
+  {
+    id: 8,
+    name: "남산공원",
+    address: "서울 중구 삼일대로 231",
+    lat: 37.5501,
+    lng: 126.9895,
+  },
+];
 
 function splitEmail(email = "") {
   if (!email.includes("@")) {
@@ -58,67 +105,116 @@ function splitEmail(email = "") {
   }
 
   const [emailId, ...rest] = email.split("@");
+
   return {
     emailId: emailId || "",
     emailDomain: rest.join("@") || "",
   };
 }
 
-export async function addRecentSearch(place) {
+function getStoredRecentSearches() {
+  try {
+    const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!saved) return DEFAULT_RECENT_SEARCHES;
+
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return DEFAULT_RECENT_SEARCHES;
+
+    return parsed.slice(0, MAX_RECENT_SEARCHES);
+  } catch (error) {
+    return DEFAULT_RECENT_SEARCHES;
+  }
+}
+
+function saveRecentSearches(searches) {
+  localStorage.setItem(
+    RECENT_SEARCHES_KEY,
+    JSON.stringify(searches.slice(0, MAX_RECENT_SEARCHES)),
+  );
+}
+
+/*
+  나중에 Map.jsx나 검색 페이지에서 공원 검색 시 아래 함수 로직처럼 넣으면 됨.
+
+  예시:
+  addRecentSearch({
+    id: Date.now(),
+    name: place.name,
+    address: place.address,
+    lat: place.lat,
+    lng: place.lng,
+  });
+*/
+export function addRecentSearch(place) {
   if (!place || !place.name) return;
 
-  const payload = {
-    id: place.id ?? null,
+  const current = getStoredRecentSearches();
+
+  const filtered = current.filter((item) => {
+    const isSameId = item.id === place.id;
+    const isSamePlace =
+      item.name === place.name &&
+      item.address === place.address &&
+      item.lat === place.lat &&
+      item.lng === place.lng;
+
+    return !isSameId && !isSamePlace;
+  });
+
+  const newItem = {
+    id: place.id || Date.now(),
     name: place.name,
     address: place.address || "",
     lat: place.lat ?? null,
     lng: place.lng ?? null,
   };
 
-  await api.post("/recent-searches", payload);
+  const updated = [newItem, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+  saveRecentSearches(updated);
 }
 
 export default function MyPage() {
   const navigate = useNavigate();
 
-  const [userInfo, setUserInfo] = useState({
-    loginId: "",
-    name: "",
-    birth: "-",
-    gender: "-",
-    email: "",
-    phone: "",
-    telecomProvider: "",
-  });
+  const storedUsername = localStorage.getItem("username") || "";
+  const storedEmail = localStorage.getItem("email") || "";
+  const storedPhone = localStorage.getItem("phone_number") || "";
+  const storedTelecomProvider = localStorage.getItem("telecom_provider") || "";
 
-  const [recentSearches, setRecentSearches] = useState([]);
+  const userInfo = useMemo(
+    () => ({
+      loginId: storedUsername || "로그인 사용자",
+      name: localStorage.getItem("name") || "사용자",
+      birth: localStorage.getItem("birth") || "-",
+      gender: localStorage.getItem("gender") || "-",
+      email: storedEmail || "",
+      phone: storedPhone || "010-0000-0000",
+      telecomProvider: storedTelecomProvider || "",
+    }),
+    [storedUsername, storedEmail, storedPhone, storedTelecomProvider],
+  );
 
-  const [pageLoading, setPageLoading] = useState(true);
+  const phoneParts = (userInfo.phone || "010-0000-0000").split("-");
+  const initialEmailParts = splitEmail(userInfo.email);
+
+  const [recentSearches, setRecentSearches] = useState(() =>
+    getStoredRecentSearches(),
+  );
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isRecentLoading, setIsRecentLoading] = useState(false);
-
-  const initialEmailParts = useMemo(
-    () => splitEmail(userInfo.email),
-    [userInfo.email],
-  );
-
-  const phoneParts = useMemo(
-    () => (userInfo.phone || "010-0000-0000").split("-"),
-    [userInfo.phone],
-  );
 
   const [editForm, setEditForm] = useState({
     currentPassword: "",
     password: "",
     passwordConfirm: "",
-    phone1: "010",
-    phone2: "",
-    phone3: "",
-    telecomProvider: "",
-    emailId: "",
-    emailDomain: "",
+    phone1: phoneParts[0] || "010",
+    phone2: phoneParts[1] || "",
+    phone3: phoneParts[2] || "",
+    telecomProvider: userInfo.telecomProvider || "",
+    emailId: initialEmailParts.emailId,
+    emailDomain: initialEmailParts.emailDomain,
   });
 
   const [errors, setErrors] = useState({
@@ -137,112 +233,17 @@ export default function MyPage() {
   const [domainReadOnly, setDomainReadOnly] = useState(false);
   const [selectedDomainOption, setSelectedDomainOption] = useState("");
 
-  const presetDomains = ["gmail.com", "naver.com", "daum.net"];
-
-  const applyUserInfoToState = (user) => {
-    const nextUserInfo = {
-      loginId: user?.username || user?.loginId || "로그인 사용자",
-      name: user?.full_name || "사용자",
-      birth: user?.birth_date || "-",
-      gender: user?.gender || "-",
-      email: user?.email || "",
-      phone: user?.phone_number || user?.phone || "010-0000-0000",
-      telecomProvider: user?.telecom_provider || user?.telecomProvider || "",
-    };
-
-    setUserInfo(nextUserInfo);
-
-    const nextPhoneParts = (nextUserInfo.phone || "010-0000-0000").split("-");
-    const nextEmailParts = splitEmail(nextUserInfo.email);
-
-    setEditForm({
-      currentPassword: "",
-      password: "",
-      passwordConfirm: "",
-      phone1: nextPhoneParts[0] || "010",
-      phone2: nextPhoneParts[1] || "",
-      phone3: nextPhoneParts[2] || "",
-      telecomProvider: nextUserInfo.telecomProvider || "",
-      emailId: nextEmailParts.emailId,
-      emailDomain: nextEmailParts.emailDomain,
-    });
-
-    if (presetDomains.includes(nextEmailParts.emailDomain)) {
-      setSelectedDomainOption(nextEmailParts.emailDomain);
-      setDomainReadOnly(true);
-    } else {
-      setSelectedDomainOption("");
-      setDomainReadOnly(false);
-    }
-  };
-
-  const fetchUserInfo = async () => {
-    const response = await api.post("/get-user");
-    const user = response.data.data;
-    console.log();
-
-    if (!user) {
-      throw new Error("사용자 정보가 없습니다.");
-    }
-
-    applyUserInfoToState(user);
-    return user;
-  };
-
-  const fetchRecentSearches = async () => {
-    setIsRecentLoading(true);
-    try {
-      const response = await api.post("/get-search-history");
-      const list = Array.isArray(response.data.histories)
-        ? response.data.histories
-        : Array.isArray(response.data?.histories)
-          ? response.data.histories
-          : [];
-      setRecentSearches(list);
-    } catch (error) {
-      setRecentSearches([]);
-    } finally {
-      setIsRecentLoading(false);
-    }
-  };
-
   useEffect(() => {
-    let isMounted = true;
-
-    const initializePage = async () => {
-      try {
-        setPageLoading(true);
-        await fetchUserInfo();
-        await fetchRecentSearches();
-      } catch (error) {
-        if (!isMounted) return;
-
-        const status = error?.response?.status;
-        if (status === 401 || status === 403) {
-          alert("로그인이 필요합니다.");
-          navigate("/login");
-          return;
-        }
-
-        alert("사용자 정보를 불러오지 못했습니다.");
-        navigate("/login");
-      } finally {
-        if (isMounted) {
-          setPageLoading(false);
-        }
-      }
-    };
-
-    initializePage();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [navigate]);
+    saveRecentSearches(recentSearches);
+  }, [recentSearches]);
 
   const resetEditForm = () => {
-    const latestPhone = (userInfo.phone || "010-0000-0000").split("-");
-    const latestEmailParts = splitEmail(userInfo.email);
+    const latestPhone = (
+      localStorage.getItem("phone_number") || userInfo.phone
+    ).split("-");
+
+    const latestEmail = localStorage.getItem("email") || userInfo.email;
+    const latestEmailParts = splitEmail(latestEmail);
 
     setEditForm({
       currentPassword: "",
@@ -251,11 +252,15 @@ export default function MyPage() {
       phone1: latestPhone[0] || "010",
       phone2: latestPhone[1] || "",
       phone3: latestPhone[2] || "",
-      telecomProvider: userInfo.telecomProvider || "",
+      telecomProvider:
+        localStorage.getItem("telecom_provider") ||
+        userInfo.telecomProvider ||
+        "",
       emailId: latestEmailParts.emailId,
       emailDomain: latestEmailParts.emailDomain,
     });
 
+    const presetDomains = ["gmail.com", "naver.com", "daum.net"];
     if (presetDomains.includes(latestEmailParts.emailDomain)) {
       setSelectedDomainOption(latestEmailParts.emailDomain);
       setDomainReadOnly(true);
@@ -363,6 +368,7 @@ export default function MyPage() {
     };
 
     let isValid = true;
+
     const email = `${editForm.emailId.trim()}@${editForm.emailDomain.trim()}`;
     const isPasswordEditing =
       editForm.currentPassword.trim() ||
@@ -443,7 +449,7 @@ export default function MyPage() {
   const handleSaveProfile = async () => {
     if (!validateEditForm()) return;
 
-    const username = userInfo.loginId;
+    const username = localStorage.getItem("username");
     if (!username) {
       alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
       navigate("/login");
@@ -451,101 +457,89 @@ export default function MyPage() {
     }
 
     const email = `${editForm.emailId.trim()}@${editForm.emailDomain.trim()}`;
+
     const payload = {
       email,
       phone_number: `${editForm.phone1}-${editForm.phone2}-${editForm.phone3}`,
-      telecom_provider: editForm.telecomProvider,
     };
 
     if (editForm.password.trim()) {
-      payload.current_password = editForm.currentPassword.trim();
       payload.password = editForm.password.trim();
     }
 
     try {
       setIsSaving(true);
 
-      const response = await api.patch(`/users/${username}`, payload);
-      console.log("response", response);
-      const updatedUser =
-        response?.data?.data || response?.data?.user || response?.data || null;
+      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
 
-      if (updatedUser) {
-        applyUserInfoToState(updatedUser);
-      } else {
-        setUserInfo((prev) => ({
-          ...prev,
-          email: payload.email,
-          phone: payload.phone_number,
-          telecomProvider: payload.telecom_provider,
-        }));
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "회원 정보 수정에 실패했습니다.");
       }
+
+      localStorage.setItem("email", payload.email);
+      localStorage.setItem("phone_number", payload.phone_number);
+      localStorage.setItem("telecom_provider", editForm.telecomProvider);
 
       alert("회원 정보가 수정되었습니다.");
       setIsEditMode(false);
       resetEditForm();
+      window.location.reload();
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "수정 중 오류가 발생했습니다.";
-      alert(message);
+      alert(error.message || "수정 중 오류가 발생했습니다.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRecentClick = (item) => {
+  const handleRecentClick = (place) => {
     navigate("/", {
       state: {
-        selectedPlace: item.search_query,
+        selectedPlace: place,
       },
     });
   };
 
-  const handleDeleteRecent = async (e, id) => {
+  const handleDeleteRecent = (e, id) => {
     e.stopPropagation();
-
-    try {
-      await api.delete(`/delete-search-history/${id}`);
-      setRecentSearches((prev) => prev.filter((item) => item.id !== id));
-    } catch (error) {
-      alert(
-        error?.response?.data?.message ||
-          "최근 검색 삭제 중 오류가 발생했습니다.",
-      );
-    }
+    setRecentSearches((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleClearAllRecent = async () => {
+  const handleClearAllRecent = () => {
     const confirmed = window.confirm("최근 검색 목록을 모두 삭제하시겠습니까?");
     if (!confirmed) return;
-
-    try {
-      await api.delete("/delete-all-search-history");
-      setRecentSearches([]);
-    } catch (error) {
-      alert(
-        error?.response?.data?.message ||
-          "최근 검색 전체 삭제 중 오류가 발생했습니다.",
-      );
-    }
+    setRecentSearches([]);
   };
 
   const handleLogout = async () => {
-    try {
-      await api.post("/logout");
-    } catch (error) {
-      // 로그아웃 API 실패여도 클라이언트는 로그인 페이지로 이동
-    } finally {
-      sessionStorage.removeItem("loginUser");
-      alert("로그아웃 되었습니다.");
-      navigate("/login");
-    }
+    await fetch("http://localhost:5000/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    sessionStorage.removeItem("loginUser");
+
+    localStorage.removeItem("username");
+    localStorage.removeItem("email");
+    localStorage.removeItem("phone_number");
+    localStorage.removeItem("telecom_provider");
+    localStorage.removeItem("name");
+    localStorage.removeItem("birth");
+    localStorage.removeItem("gender");
+
+    alert("로그아웃 되었습니다.");
+    navigate("/login");
   };
 
   const handleWithdraw = async () => {
-    const username = userInfo.loginId;
+    const username = localStorage.getItem("username");
 
     if (!username) {
       alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
@@ -556,46 +550,40 @@ export default function MyPage() {
     const confirmed = window.confirm(
       "정말 회원탈퇴 하시겠습니까?\n탈퇴 후 계정 정보는 복구할 수 없습니다.",
     );
+
     if (!confirmed) return;
 
     try {
       setIsDeleting(true);
-      await api.delete(`/users/${username}`);
-      sessionStorage.removeItem("loginUser");
+
+      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "회원탈퇴에 실패했습니다.");
+      }
+
+      localStorage.removeItem("username");
+      localStorage.removeItem("email");
+      localStorage.removeItem("phone_number");
+      localStorage.removeItem("telecom_provider");
+      localStorage.removeItem("name");
+      localStorage.removeItem("birth");
+      localStorage.removeItem("gender");
+      localStorage.removeItem(RECENT_SEARCHES_KEY);
+
       alert("회원탈퇴가 완료되었습니다.");
       navigate("/login");
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "회원탈퇴 중 오류가 발생했습니다.";
-      alert(message);
+      alert(error.message || "회원탈퇴 중 오류가 발생했습니다.");
     } finally {
       setIsDeleting(false);
     }
   };
-
-  if (pageLoading) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          bgcolor: "#f7faf7",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          px: 2,
-        }}
-      >
-        <Stack alignItems="center" spacing={1.2}>
-          <CircularProgress size={30} />
-          <Typography fontSize={14} color="text.secondary">
-            사용자 정보를 불러오는 중입니다...
-          </Typography>
-        </Stack>
-      </Box>
-    );
-  }
 
   return (
     <Box
@@ -1139,21 +1127,7 @@ export default function MyPage() {
               클릭 시 메인 지도로 이동
             </Typography>
 
-            {isRecentLoading ? (
-              <Box
-                sx={{
-                  py: 5,
-                  borderRadius: 3,
-                  bgcolor: "#fafcf9",
-                  border: "1px dashed #dbe7db",
-                  textAlign: "center",
-                }}
-              >
-                <Typography fontSize={14} fontWeight={700} color="#415341">
-                  최근 검색 기록을 불러오는 중입니다
-                </Typography>
-              </Box>
-            ) : recentSearches.length === 0 ? (
+            {recentSearches.length === 0 ? (
               <Box
                 sx={{
                   py: 5,
@@ -1213,7 +1187,7 @@ export default function MyPage() {
                           <ListItemText
                             primary={
                               <Typography fontWeight={700} fontSize={14} noWrap>
-                                {index + 1}. {item.search_query}
+                                {index + 1}. {item.name}
                               </Typography>
                             }
                             secondary={

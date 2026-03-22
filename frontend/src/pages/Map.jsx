@@ -3,6 +3,7 @@ import { getPark } from "../api/park";
 import MainHeader from "../components/MainHeader";
 import { Icon, divIcon, point } from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet";
+import { useLocation } from "react-router-dom";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import MapSideBarLayer from "../components/MapSideBarLayer";
 
@@ -36,6 +37,7 @@ export default function Map() {
   });
 
   const mapRef = useRef(null);
+  const markerRef = useRef(null);
 
   // 초기화 하기 위해서 iconUrl과 iconSize 필요
   // 마커 아이콘
@@ -141,8 +143,14 @@ export default function Map() {
       map.flyTo(parkData[0].center.coordinates, 12);
   }, [parkData]);
   /////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////// 마이페이지에서 넘어오는 값 처리 함수 ////////////////////////////
 
-  // console.log("selParkData", selParkData);
+  const location = useLocation();
+
+  useEffect(() => {
+    const selectedPlace = location.state.selectedPlace;
+    handleClickSearch(selectedPlace); // 검색
+  }, [location]);
 
   return (
     <div>

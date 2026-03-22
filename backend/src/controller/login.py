@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request, status, Body
 from fastapi.responses import JSONResponse
 from sqlalchemy import text 
 from util.database import engine
-
+from fastapi.encoders import jsonable_encoder
 
 # pip install PyJWT 설치
 import jwt   # JWT 토큰 처리용
@@ -105,3 +105,20 @@ async def logout(request: Request):
     except Exception as e:
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                             content={"message": "서버 오류", "error": str(e)})
+        
+## 유저 정보 가져오기 API
+def get_user(request: Request) :
+    try:
+        loginYn = True if "user" in request.session else False
+        if loginYn :
+            username = request.session["user"]
+            data = login_service.get_user(username)
+            return JSONResponse(status_code=status.HTTP_200_OK, 
+                                content=jsonable_encoder({"message": "유저 정보 조회 성공", "data": data}))
+        else :
+            return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, 
+                                content={"message": "로그인된 유저 정보 누락"}) 
+    except Exception as e:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            content={"message": "서버 오류", "error": str(e)})
+        

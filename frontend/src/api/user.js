@@ -1,9 +1,9 @@
-import { api } from "./axios";
+import { api, api_cre } from "./axios";
 
 export async function signup(data) {
   const res = await api.post("/register", data);
 
-  return data;
+  return res;
 
   //   try {
   //     const res = await api.post("http://localhost:5000/register", data);
@@ -11,4 +11,8 @@ export async function signup(data) {
   //   } catch (err) {
   //     console.error(err);
   //   }
+}
+
+export async function loginCheck() {
+  return api_cre.post("/get-user");
 }

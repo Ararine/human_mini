@@ -9,7 +9,8 @@ def update_user(
     username: str,
     email: str | None,
     phone_number: str | None,
-    password: str | None
+    password: str | None,
+    telecom_provider: str | None,
 ) -> bool:
     # 사용자 존재 여부 확인
     user = get_user_from_db(username)
@@ -25,6 +26,8 @@ def update_user(
     if password is not None:
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         fields["hashed_password"] = hashed.decode('utf-8')
+    if telecom_provider is not None:
+        fields["telecom_provider"] = telecom_provider
 
     if not fields:
         return False  # 수정할 내용 없음
@@ -36,7 +39,9 @@ def update_user(
     query = text(f"UPDATE users SET {set_clause} WHERE username = :username")
     with engine.begin() as conn:
         conn.execute(query, fields)
-    return True
+        
+    user = get_user_from_db(username)
+    return user
 
 
 # 회원 탈퇴

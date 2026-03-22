@@ -19,6 +19,7 @@ from sqlalchemy import text
 from util.database import engine 
 from route import login, signup, mypage, find_user
 from route.park import router as park_router
+from route.history import router as history_router
 
 
 app=FastAPI()   # FastAPI 앱 인스턴스 생성
@@ -46,6 +47,7 @@ app.include_router(signup.router)
 app.include_router(mypage.router) 
 app.include_router(find_user.router)
 app.include_router(park_router, prefix="/park")
+app.include_router(history_router)
 
 if __name__ == "__main__":
     try:

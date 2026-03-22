@@ -3,8 +3,8 @@ import bcrypt
 from sqlalchemy import text 
 
 from util.database import engine
-from model.user_handler import get_user
 from util.database import SessionLocal
+from model import user_handler
 
 from .user_service import get_user_from_db, change_password_in_db
 
@@ -19,7 +19,7 @@ users = {
 def verify_user(username: str, password: str) -> bool:
     db = SessionLocal()
     try :
-        user_record = get_user(db, username=username)
+        user_record = user_handler.get_user(db, username=username)
         if user_record:
             stored_hash = user_record["hashed_password"] # DB에서 불러온 해시
             if isinstance(stored_hash, str):
@@ -28,8 +28,8 @@ def verify_user(username: str, password: str) -> bool:
             pw_bytes = password.encode('utf-8')
 
             return bcrypt.checkpw(pw_bytes, stored_hash)
-    except Exception as E :
-        print(E)
+    except Exception as e :
+        print(e)
         return False
     finally :
         db.close()
@@ -54,3 +54,15 @@ def check_user_exists(email: str, name: str) -> bool:
     with engine.connect() as conn:
         row = conn.execute(query, {"email": email, "name": name}).fetchone()
     return row[0] > 0
+
+# 유저 정보 가져오기
+def get_user(username : str) :
+    db = SessionLocal()
+    try :
+        user_record = user_handler.get_user(db, username=username)
+        return user_record
+    except Exception as e :
+        print(e)
+        return None
+    finally:
+        db.close()

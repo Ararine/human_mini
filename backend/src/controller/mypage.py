@@ -2,6 +2,7 @@ from fastapi import APIRouter, Path, Body, status, Request
 from fastapi.responses import JSONResponse
 import service.mypage as mypage_service
 from schema.mypage import PatchUserRequest
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter()
 
@@ -15,7 +16,8 @@ async def patch_user(username: str = Path(...), data: PatchUserRequest = Body(..
             username,
             data.email if data else None,
             data.phone_number if data else None,
-            data.password if data else None
+            data.password if data else None,
+            data.telecom_provider if data else None
         )
         if not updated:
             return JSONResponse(
@@ -24,7 +26,7 @@ async def patch_user(username: str = Path(...), data: PatchUserRequest = Body(..
             )
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"message": "회원 정보 수정 완료"}
+            content=jsonable_encoder({"message": "회원 정보 수정 완료", "data": updated})
         )
     except Exception as e:
         return JSONResponse(
