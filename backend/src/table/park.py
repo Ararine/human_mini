@@ -19,6 +19,7 @@ class Park(Base):
     phone_number = Column(String(50), nullable=True)
     
     geom = Column(Geometry(geometry_type='POINT', srid=4326), index=True)
+    # poly_geom = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326), index=True)
 
     def __repr__(self):
         return f"<Park(id={self.id}, name='{self.park_name}')>"

@@ -1,4 +1,3 @@
-import React from "react";
 import {
   AppBar,
   Toolbar,
@@ -7,17 +6,20 @@ import {
   Button,
   TextField,
 } from "@mui/material";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-export default function MainHeader({
-  searchKeyword = "",
-  onChangeSearch,
-  onSearch,
-}) {
+export default function MainHeader({ handleKeyDownSearch, handleClickSearch }) {
+  const [changeKeyword, setChangeKeyword] = useState("");
   const navigate = useNavigate();
 
   const loginUser = sessionStorage.getItem("loginUser");
   const isLogin = !!loginUser; // ✅ 로그인 여부 판단
+
+  // 검색창에 단어 입력시 작동하는 함수
+  const handleChangeKeyword = (e) => {
+    setChangeKeyword(e.target.value);
+  };
 
   return (
     <AppBar
@@ -85,15 +87,10 @@ export default function MainHeader({
             <TextField
               fullWidth
               placeholder="공원명 또는 지역을 검색하세요"
-              value={searchKeyword}
-              onChange={onChangeSearch}
               variant="outlined"
               size="small"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && onSearch) {
-                  onSearch();
-                }
-              }}
+              onChange={handleChangeKeyword}
+              onKeyDown={(e) => handleKeyDownSearch(e)}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   height: 44,
@@ -110,7 +107,7 @@ export default function MainHeader({
 
             <Button
               variant="contained"
-              onClick={onSearch}
+              onClick={() => handleClickSearch(changeKeyword)}
               sx={{
                 minWidth: 96,
                 height: 44,

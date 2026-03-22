@@ -23,3 +23,13 @@ export const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+export const api_cre = axios.create({
+  baseURL: URL.SERVER_URL || "http://localhost:5000",
+  timeout: 5000,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});

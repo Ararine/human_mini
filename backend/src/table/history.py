@@ -9,7 +9,7 @@ class SearchHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # 외래키 설정: User 테이블의 id 참조 (CASCADE 삭제 적용)
-    user_name = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    username = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     
 
     search_query = Column(String(255), nullable=False)

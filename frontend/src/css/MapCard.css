@@ -1,0 +1,97 @@
+.place-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 30%;
+  width: 100%;
+  max-width: 500px;
+  margin: 20px 0;
+  border-radius: 20px;
+  padding: 15px;
+  background-color: #3f6b46;
+  color: white;
+  font-weight: 300;
+  letter-spacing: 0.3;
+  cursor: pointer;
+  transition: background-color 0.5s ease opacity 0.5s ease;
+}
+
+.place-card:hover {
+  background-color: rgba(62, 124, 75, 1);
+}
+
+.place-card:active {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.place-card:focus,
+.place-card:focus-visible {
+  background-color: rgba(62, 124, 75, 0.8);
+}
+
+.place-card-header {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 8px;
+  height: 10%;
+  gap: 10px;
+}
+
+.place-card-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 90%;
+  gap: 5px;
+}
+
+.place-title {
+  font-size: 1.2vw;
+  font-weight: 700;
+}
+
+.place-distance {
+  font-size: 1.1vw;
+  font-weight: 500;
+}
+
+.place-address-wrap {
+  height: 15%;
+  display: flex;
+  align-items: center;
+}
+
+.place-address {
+  font-size: 1vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 빨간 박스 영역 */
+.image-card-box {
+  width: 100%;
+  height: 85%;
+}
+
+.image-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* 이미지 꽉 차게 */
+.image-item img {
+  width: 100%;
+  height: 90%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.image-item img.error {
+  object-fit: fill;
+}

@@ -1,0 +1,105 @@
+.detailbar-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 20px 0;
+}
+
+.detailbar-header {
+  position: relative;
+  height: 30vh;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.detailbar-main {
+  position: relative;
+  border-radius: 10px;
+  background-color: white;
+  min-height: 45vh;
+  font-size: 1.1vw;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+.datailbar-image {
+  position: relative;
+  height: 85%;
+}
+
+/* 이미지 꽉 차게 */
+.datailbar-image img {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.datailbar-image img.error {
+  object-fit: fill;
+}
+
+.datailbar-title {
+  border-radius: 5px;
+  font-size: 1.2vw;
+  font-weight: 700;
+  margin-top: 5px;
+}
+
+.detailbar-tab {
+  display: flex;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 1px solid;
+  border-color: rgba(0, 0, 0, 0.4);
+  height: 5vh;
+  background-color: white;
+}
+
+.detailbar-tab-home,
+.detailbar-tab-information {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 50%;
+  cursor: pointer;
+}
+
+.detailbar-tab-inner {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  font-size: 1.1vw;
+  font-weight: 600;
+}
+
+.detailbar-tab-main-inner {
+  display: grid;
+  /* grid-template-columns: 1fr 3fr 10fr; */
+  grid-template-columns: 3fr 10fr;
+  font-size: 1.1vw;
+  margin: 20px 0;
+}
+
+.detailbar-tab-main-title {
+  font-size: 1.1vw;
+  font-weight: 700;
+}
+
+.br1 {
+  border-right: 1px rgba(0, 0, 0, 0.4) solid;
+}
+
+.detailbar-tab-info {
+  margin: 20px 0;
+}
+
+.detailbar-tab-info-header {
+  font-size: 1.2vw;
+  font-weight: 700;
+  margin-bottom: 10px;
+}

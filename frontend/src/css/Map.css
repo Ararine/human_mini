@@ -1,0 +1,39 @@
+.home-header {
+  position: relative;
+  inset: 0;
+  width: 100%;
+  height: 64px;
+  z-index: 1000;
+}
+
+.leaflet-map-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.home-sidebar {
+  position: relative;
+  width: 0px;
+  height: calc(100vh - 64px);
+}
+
+/* sizing of map container */
+.leaflet-container {
+  height: 100vh;
+}
+
+.cluster-icon {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 50%;
+  background-color: green;
+  transform: translate(-20%, -20%);
+  opacity: 0.9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 900;
+  font-size: 1.5rem;
+}

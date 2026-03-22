@@ -1,0 +1,144 @@
+.map-sidebar-layer {
+  position: absolute;
+  left: 0;
+  height: calc(100vh - 64px);
+  width: 0;
+  z-index: 1000;
+  transition: width 0.3s ease;
+}
+
+.map-sidebar-layer.full-open {
+  width: 800px;
+}
+
+.map-sidebar-layer.partial-open {
+  width: 400px;
+}
+
+.map-sidebar-layer.close {
+  width: 0;
+}
+
+.sidebar-wrap {
+  display: flex;
+  height: 100%;
+  position: relative;
+}
+
+/* 공통 */
+.sidebar-main,
+.sidebar-detail {
+  overflow: hidden;
+  box-sizing: border-box;
+  transition:
+    width 0.3s ease,
+    margin 0.3s ease,
+    border 0.3s ease;
+}
+
+/* main 영역 */
+.sidebar-main {
+  position: relative;
+  height: 100%;
+  background-color: rgba(95, 175, 111, 0.95);
+  border-radius: 0;
+}
+
+.sidebar-main.main-open {
+  width: 400px;
+}
+
+.sidebar-main.main-close {
+  width: 0;
+}
+
+/* detail 영역 */
+.sidebar-detail {
+  position: relative;
+  top: 5%;
+  border-radius: 15px;
+  background-color: rgba(169, 228, 102, 0.95);
+}
+
+.sidebar-detail.detail-open {
+  width: 400px;
+  height: 90%;
+}
+
+.sidebar-detail.detail-close {
+  width: 0;
+}
+
+/* 내부 실제 콘텐츠 폭 고정 */
+.sidebar-inner {
+  width: 100%;
+  min-width: 400px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 20px;
+  overflow-y: auto;
+}
+
+/* fold 버튼 */
+.fold-btn {
+  position: absolute;
+  top: 50%;
+  right: -40px;
+  transform: translateY(-50%);
+  z-index: 1000;
+}
+
+.fold-btn button {
+  /* 크기 */
+  width: 40px;
+  height: 80px;
+
+  /* 테두리 */
+  border: none;
+  border-radius: 0 10px 10px 0;
+
+  /* 글씨 */
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+
+  /* 배경: 위는 연한 초록, 아래는 진한 초록 */
+  background: linear-gradient(to bottom, #66bb6a 0%, #2e7d32 100%);
+
+  /* 그림자 */
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.fold-btn button:hover {
+  background: linear-gradient(to bottom, #81c784 0%, #388e3c 100%);
+  box-shadow:
+    0 6px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.fold-btn button:active {
+  background: linear-gradient(to bottom, #4caf50 0%, #1b5e20 100%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 2px 4px rgba(0, 0, 0, 0.15);
+  transform: translateY(1px);
+}
+
+.fold-btn button:focus {
+  outline: none;
+}
+
+.fold-btn button:focus-visible {
+  outline: 3px solid rgba(102, 187, 106, 0.35);
+  outline-offset: 2px;
+}
