@@ -519,7 +519,13 @@ export default function MyPage() {
     setRecentSearches([]);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch("http://localhost:5000/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    sessionStorage.removeItem("loginUser");
+
     localStorage.removeItem("username");
     localStorage.removeItem("email");
     localStorage.removeItem("phone_number");
