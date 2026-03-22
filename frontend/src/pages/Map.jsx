@@ -148,8 +148,10 @@ export default function Map() {
   const location = useLocation();
 
   useEffect(() => {
-    const selectedPlace = location.state.selectedPlace;
-    handleClickSearch(selectedPlace); // 검색
+    if (location.state !== undefined && location.state !== null) {
+      const selectedPlace = location.state.selectedPlace;
+      handleClickSearch(selectedPlace); // 검색
+    }
   }, [location]);
 
   return (
