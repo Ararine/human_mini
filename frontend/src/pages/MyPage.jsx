@@ -28,6 +28,7 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import { useNavigate } from "react-router-dom";
+import { deleteUser, logout, updateUser } from "../api/user";
 
 const PASSWORD_REGEX =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
@@ -469,19 +470,10 @@ export default function MyPage() {
 
     try {
       setIsSaving(true);
+      const response = await updateUser(username, payload);
+      const data = response.data;
 
-      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(data.message || "회원 정보 수정에 실패했습니다.");
       }
 
@@ -520,13 +512,10 @@ export default function MyPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("http://localhost:5000/logout", {
-      method: "POST",
-      credentials: "include",
-    });
+    await logout();
     sessionStorage.removeItem("loginUser");
-
     localStorage.removeItem("username");
+
     localStorage.removeItem("email");
     localStorage.removeItem("phone_number");
     localStorage.removeItem("telecom_provider");
@@ -555,15 +544,9 @@ export default function MyPage() {
 
     try {
       setIsDeleting(true);
-
-      const response = await fetch(`${API_BASE_URL}/users/${username}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
+      const response = await deleteUser(username);
+      const data = response.data;
+      if (response.status !== 200) {
         throw new Error(data.message || "회원탈퇴에 실패했습니다.");
       }
 

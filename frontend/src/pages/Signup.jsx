@@ -17,6 +17,12 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  send_code,
+  checkDuplicate,
+  register,
+  verify_password_code,
+} from "../api/user";
 
 const EXISTING_EMAILS = ["test@gmail.com", "admin@naver.com", "user@daum.net"];
 
@@ -236,10 +242,8 @@ function Signup() {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/check-username/${userid}`,
-      );
-      const data = await response.json();
+      const response = await checkDuplicate(userid);
+      const data = response.data;
 
       if (data.isDuplicate) {
         setIdMsg("이미 사용 중인 아이디입니다.");
@@ -309,18 +313,9 @@ function Signup() {
       clearFieldError("emailCode");
       setEmailMsg("인증코드가 이메일로 전송되었습니다.");
       setEmailCodeMsg("");
-
-      const response = await fetch("http://localhost:5000/send-email-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      const response = await send_code(email);
+      const data = response.data;
+      if (response.status === 200) {
         setEmailMsg(data.message || "인증코드가 이메일로 전송되었습니다.");
       } else {
         setEmailChecked(false);
@@ -363,20 +358,10 @@ function Signup() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/verify-email-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          code: form.emailCode.trim(),
-        }),
-      });
+      const response = await verify_password_code(email, form.emailCode.trim());
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.status === 200) {
         setEmailVerified(true);
         setEmailCodeSent(false);
         setShowResendButton(false);
@@ -510,19 +495,9 @@ function Signup() {
 
     try {
       setIsSubmitting(true);
+      const data = await register(payload);
 
-      const response = await fetch("http://localhost:5000/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      if (data) {
         alert(data.message || "회원가입이 완료되었습니다.");
         setForm(INITIAL_FORM);
         setErrors({});

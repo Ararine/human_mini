@@ -15,6 +15,7 @@ import {
   Link as MuiLink,
 } from "@mui/material";
 import { Link } from "react-router-dom";
+import { find_id, verify_code } from "../api/user";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,17 +73,10 @@ function FindId() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/find-id/send-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
+      const response = await find_id(email);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (response.status !== 200) {
         setError(data.message || "이메일 인증 요청에 실패했습니다.");
         return;
       }
@@ -116,20 +110,11 @@ function FindId() {
     }
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/find-id/verify-code",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, code }),
-        },
-      );
+      const response = await verify_code(email, code);
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         setError(data.message || "임시 코드 검증에 실패했습니다.");
         return;
       }

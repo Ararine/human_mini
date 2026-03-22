@@ -1,11 +1,9 @@
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
 
 from service.signup import register_user, check_duplicate_username
 from schema.signup import SignupRequest, EmailCodeRequest, EmailVerifyRequest 
-import service.email_service as email_service 
-from util.database import engine 
+import util.email as email_service 
 
 router = APIRouter()
 

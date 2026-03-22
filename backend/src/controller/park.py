@@ -1,8 +1,7 @@
-from fastapi import Path, Body, status, Request, Query
+from fastapi import status, Request, Query
 from fastapi.responses import JSONResponse
 import service.park as park_service
 import service.history as history_service
-from schema.mypage import PatchUserRequest
 
 async def get_park(request: Request, coordinate : list[float] = Query(...), keyword: str = Query(...)):
     try:

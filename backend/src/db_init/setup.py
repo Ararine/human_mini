@@ -21,4 +21,5 @@ def init_db():
     load_seoul_parks(csv_path)
 
 if __name__ == "__main__":
-    init_db()
+    init_db() 
+    # backend 경로에서 python -m src.db_init.setup 으로 실행해야 함

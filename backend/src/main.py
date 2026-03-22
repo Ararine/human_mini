@@ -7,16 +7,13 @@
 
 import os
 from dotenv import load_dotenv  # 환경변수 로더
-load_dotenv()   # 환경변수 로드
+load_dotenv("../.env")   # 환경변수 로드
 
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 import sys, uvicorn
 
-from sqlalchemy import text 
-
-from util.database import engine 
 from route import login, signup, mypage, find_user
 from route.park import router as park_router
 

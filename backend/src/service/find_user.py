@@ -1,12 +1,13 @@
 import bcrypt
+
 from model.user_handler import get_user
 from model.verification_handler import (
     insert_verification_code,
     update_verification_success
 )
-from service.email_service import send_email, generate_code
-from service.user_service import change_password_in_db
 from util.database import SessionLocal
+from util.email import send_email, generate_code
+from service.user_service import change_password_in_db
 
 # 아이디 찾기 - 인증코드 발송
 async def send_find_id_code(email: str):

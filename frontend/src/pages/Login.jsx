@@ -11,6 +11,7 @@ import {
   Stack,
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
+import { login } from "../api/user";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -60,28 +61,15 @@ export default function Login() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validate() || isSubmitting) return;
-
     try {
+      e.preventDefault();
+      if (!validate() || isSubmitting) return;
+
       setIsSubmitting(true);
+      const response = await login(form.userId.trim(), form.password);
 
-      const response = await fetch("http://localhost:5000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          username: form.userId.trim(),
-          password: form.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
+      const data = response.data;
+      if (response.status === 200) {
         const loginUser = {
           userId: form.userId.trim(),
           isLogin: true,

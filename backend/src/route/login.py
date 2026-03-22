@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from controller.login import login, reset_password, protected, logout  
 
 router = APIRouter()
 
-router.post("/login")(login)         
-router.post("/reset-password")(reset_password)  
-router.get("/protected")(protected)   
-router.post("/logout")(logout)         
+router.add_api_route("/login", login, methods=["POST"])         
+router.add_api_route("/reset-password", reset_password, methods=["POST"])  
+router.add_api_route("/protected", protected, methods=["GET"])   
+router.add_api_route("/logout", logout, methods=["POST"])

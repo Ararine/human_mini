@@ -9,8 +9,8 @@ from controller.find_user import (
 
 router = APIRouter()
 
-router.post("/find-id/send-code")(find_id_send_code)
-router.post("/find-id/verify-code")(find_id_verify_code)
-router.post("/find-password/send-code")(find_password_send_code)
-router.post("/find-password/verify-code")(find_password_verify_code)
-router.post("/find-password/reset")(reset_password)
+router.add_api_route("/find-id/send-code", find_id_send_code, methods=["POST"])
+router.add_api_route("/find-id/verify-code", find_id_verify_code, methods=["POST"])
+router.add_api_route("/find-password/send-code", find_password_send_code, methods=["POST"])
+router.add_api_route("/find-password/verify-code", find_password_verify_code, methods=["POST"])
+router.add_api_route("/find-password/reset", reset_password, methods=["POST"])

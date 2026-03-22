@@ -10,7 +10,8 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data # 데이터 영구 저장
+      - ./database/postgres_data:/var/lib/postgresql/data # 데이터 영구 저장
+      # - ./database/init/:/docker-entrypoint-initdb.d/ # 초기화 스크립트 자동 실행(수정 필요)
     networks:
       - park_network
 
@@ -20,11 +21,15 @@ services:
       dockerfile: Dockerfile
     container_name: team_1_backend
     env_file:
-      - ./.env
+      - "./.env"
+    # 덮어쓸 환경 변수 목록 기재
+    environment:
+      DB_HOST: team_1_db
+      DB_PORT: 5432
     ports:
       - "5000:5000"
     volumes:
-      - "./backend/src:/app"
+      - "./backend:/app"
     networks:
       - park_network
 
@@ -32,6 +37,8 @@ services:
     image: node:20-alpine
     container_name: team_1_frontend
     working_dir: /app
+    env_file:
+      - ".env"
     volumes:
       - ./frontend:/app
       - /app/node_modules

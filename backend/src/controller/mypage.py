@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Path, Body, status, Request
+from fastapi import APIRouter, Path, Body, status
 from fastapi.responses import JSONResponse
 import service.mypage as mypage_service
 from schema.mypage import PatchUserRequest

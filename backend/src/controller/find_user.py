@@ -1,18 +1,17 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
+
 import service.find_user as find_user_service
 from schema.find_user import (
     FindIdRequest,
     FindIdVerifyRequest,
     FindPasswordRequest,
-    FindPasswordVerifyRequest,
     ResetPasswordRequest
 )
 
 router = APIRouter()
 
 # 아이디 찾기 - 가입한 이메일로 인증코드 발송
-@router.post("/find-id/send-code")
 async def find_id_send_code(data: FindIdRequest):
     try:
         await find_user_service.send_find_id_code(data.email)
@@ -27,7 +26,6 @@ async def find_id_send_code(data: FindIdRequest):
         )
 
 # 아이디 찾기 - 코드 확인 후 username 반환
-@router.post("/find-id/verify-code")
 async def find_id_verify_code(data: FindIdVerifyRequest):
     try:
         user_ids = find_user_service.verify_find_id_code(data.email, data.code)
@@ -47,7 +45,6 @@ async def find_id_verify_code(data: FindIdVerifyRequest):
         )
 
 # 비밀번호 찾기 - 인증코드 발송
-@router.post("/find-password/send-code")
 async def find_password_send_code(data: FindPasswordRequest):
     try:
         await find_user_service.send_find_password_code(
@@ -64,7 +61,6 @@ async def find_password_send_code(data: FindPasswordRequest):
         )
 
 # 비밀번호 재설정 위한 인증 코드 확인
-@router.post("/find-password/verify-code")
 async def find_password_verify_code(data: FindIdVerifyRequest):
     try:
         result = find_user_service.verify_find_password_code(
@@ -86,7 +82,6 @@ async def find_password_verify_code(data: FindIdVerifyRequest):
         )
 
 # 비밀번호 재설정
-@router.post("/find-password/reset")
 async def reset_password(data: ResetPasswordRequest):
     try:
         result = find_user_service.reset_password(

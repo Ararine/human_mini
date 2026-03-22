@@ -20,6 +20,21 @@ export default function Map() {
   // 좌표 데이터
   const [coordinate, setCoordinate] = useState([37.5665, 126.978]); // 서울 중심좌표
 
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      return;
+    }
+    navigator.geolocation.getCurrentPosition((position) => {
+      setCoordinate([position.coords.latitude, position.coords.longitude]);
+    });
+  }, []);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) {
+      map.setView(coordinate, 15);
+    }
+  }, [coordinate]);
+
   // 사이드 바
   // 사이드 바 리스트
   const [mainOpen, setMainOpen] = useState(false);

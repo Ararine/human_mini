@@ -1,7 +1,7 @@
 from fastapi import APIRouter
-from route import login, signup, mypage
+from controller import mypage
 
 router = APIRouter()
 
-router.patch("/users/{username}")(mypage.patch_user)
-router.delete("/users/{username}")(mypage.delete_user)
+router.add_api_route("/users/{username}", mypage.patch_user, methods=["PATCH"])
+router.add_api_route("/users/{username}", mypage.delete_user, methods=["DELETE"])

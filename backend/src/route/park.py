@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from controller import park as park_controller
 
 router = APIRouter()

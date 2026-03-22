@@ -12,8 +12,7 @@ import {
   Divider,
 } from "@mui/material";
 import { Link } from "react-router-dom";
-
-const API_BASE_URL = "http://localhost:5000";
+import { send_code, verify_password_code } from "../api/user";
 
 const ID_REGEX = /^[A-Za-z0-9]{8,12}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -228,21 +227,11 @@ export default function FindPassword() {
     if (!validateUserInfo()) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/send-email-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
+      const response = await send_code(form.email.trim());
+      const data = response.data;
+      if (response.status !== 200) {
         throw new Error(
-          data?.detail || data?.message || "임시 코드 전송에 실패했습니다.",
+          response.data?.message || "임시 코드 전송에 실패했습니다.",
         );
       }
 
@@ -280,19 +269,11 @@ export default function FindPassword() {
     if (!validateUserInfo()) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/send-email-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email.trim(),
-        }),
-      });
+      const response = await send_code(form.email.trim());
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      console.log("재발급 응답:", response);
+      if (response.status !== 200) {
         throw new Error(
           data?.detail || data?.message || "임시 코드 재발급에 실패했습니다.",
         );
@@ -330,20 +311,13 @@ export default function FindPassword() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/verify-email-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email.trim(),
-          code: form.code.trim(),
-        }),
-      });
+      const response = await verify_password_code(
+        form.email.trim(),
+        form.code.trim(),
+      );
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(
           data?.detail || data?.message || "임시 코드 인증에 실패했습니다.",
         );

@@ -30,8 +30,8 @@ def change_password_in_db(username: str, new_hash: bytes) -> bool:
         db_user.hashed_password = new_hash_str  # 객체의 비밀번호 변경
         db.commit()  # 변경 비밀번호 DB에 저장 
         return True   
-        print(f"Change Password Error: {e}")
-        db.rollback()  # 오류 발생 시 변경사항 취소
-        return False
+        # print(f"Change Password Error: {e}")
+        # db.rollback()  # 오류 발생 시 변경사항 취소
+        # return False
     finally:
         db.close()  
