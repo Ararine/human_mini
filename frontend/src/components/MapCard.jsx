@@ -1,6 +1,5 @@
 import { useState } from "react";
 import "../css/MapCard.css";
-import no_img from "../assets/image_error.jpg";
 
 export default function MapCard({ item, handleParkClick }) {
   const [isCardError, setIsCardError] = useState(false);

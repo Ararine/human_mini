@@ -1,6 +1,5 @@
 import { useState } from "react";
 import "../css/MapSideDetailBar.css";
-import no_img from "../assets/image_error.jpg";
 
 export default function MapSideDetailBar({ selParkData }) {
   const [isDetailError, setIsDetailError] = useState(false);
