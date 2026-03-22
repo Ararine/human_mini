@@ -8,7 +8,6 @@ router = APIRouter()
 
 # 회원 정보 수정 API
 # request.form() 방식으로 데이터 받게끔 작성
-@router.patch("/users/{username}")
 async def patch_user(username: str = Path(...), data: PatchUserRequest = Body(...)):
     try:
         updated = mypage_service.update_user(
@@ -34,7 +33,6 @@ async def patch_user(username: str = Path(...), data: PatchUserRequest = Body(..
 
         
 # 회원 탈퇴 (DELETE)
-@router.delete("/users/{username}")
 async def delete_user(username: str = Path(...)):
     try:
         deleted = mypage_service.delete_user(username)

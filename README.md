@@ -28,7 +28,6 @@ docker exec team_1_backend python -m src.db_init.setup
 #### FRONTEND
 
 1. 로그인 정보가 없는 경우 접근 차단하는 기능 추가
-2.
 
 #### DB
 
